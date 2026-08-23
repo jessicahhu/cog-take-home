@@ -123,6 +123,70 @@ function BlockPreview({ type }: { type: Block['type'] }) {
           <div className="connect">+ Link account</div>
         </div>
       )
+    case 'customer':
+      return (
+        <div className="preview preview-customer">
+          <div className="who">
+            <span className="avatar">JD</span>
+            <span>
+              <span className="name">Jane Doe</span>
+              <span className="email">jane@acme.com</span>
+            </span>
+          </div>
+          <div className="kyc">KYC: Verified</div>
+        </div>
+      )
+    case 'queue':
+      return (
+        <div className="preview preview-queue">
+          <div className="case">
+            <span>Case #4821</span>
+            <span className="actions">
+              <span className="approve">✓</span>
+              <span className="reject">✕</span>
+            </span>
+          </div>
+          <div className="case">
+            <span>Case #4822</span>
+            <span className="actions">
+              <span className="approve">✓</span>
+              <span className="reject">✕</span>
+            </span>
+          </div>
+        </div>
+      )
+    case 'refund':
+      return (
+        <div className="preview preview-refund">
+          <div className="field">$ 25.00</div>
+          <div className="field">Reason: duplicate charge</div>
+          <div className="issue">Issue refund</div>
+        </div>
+      )
+    case 'flags':
+      return (
+        <div className="preview preview-flags">
+          <div className="flag">
+            <span>new-onboarding</span>
+            <span className="toggle on" />
+          </div>
+          <div className="flag">
+            <span>instant-transfers</span>
+            <span className="toggle" />
+          </div>
+        </div>
+      )
+    case 'audit':
+      return (
+        <div className="preview preview-audit">
+          <div className="entry">
+            <span className="when">2m</span> ana approved case #4821
+          </div>
+          <div className="entry">
+            <span className="when">1h</span> sam enabled new-onboarding
+          </div>
+        </div>
+      )
   }
 }
 

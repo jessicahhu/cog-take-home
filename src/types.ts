@@ -12,6 +12,11 @@ export type BlockType =
   | 'payment'
   | 'card'
   | 'linkbank'
+  | 'customer'
+  | 'queue'
+  | 'refund'
+  | 'flags'
+  | 'audit'
 
 export interface Block {
   id: string
@@ -27,7 +32,13 @@ export interface PaletteItem {
   label: string
   icon: string
   description: string
-  section: 'general' | 'fintech'
+  section: 'general' | 'fintech' | 'ops'
+}
+
+export const SECTION_TITLES: Record<PaletteItem['section'], string> = {
+  general: 'Features',
+  fintech: 'Fintech',
+  ops: 'Internal Ops',
 }
 
 export const PALETTE: PaletteItem[] = [
@@ -44,6 +55,11 @@ export const PALETTE: PaletteItem[] = [
   { type: 'payment', label: 'Payment Form', icon: '➤', description: 'Send money to a recipient', section: 'fintech' },
   { type: 'card', label: 'Virtual Card', icon: '▭', description: 'Card number, expiry, and freeze', section: 'fintech' },
   { type: 'linkbank', label: 'Link Bank Account', icon: '⛓', description: 'Plaid-style account connect', section: 'fintech' },
+  { type: 'customer', label: 'Customer Info', icon: '☺', description: 'Identity, contact, and KYC status', section: 'ops' },
+  { type: 'queue', label: 'Review Queue', icon: '☷', description: 'Cases with approve / reject actions', section: 'ops' },
+  { type: 'refund', label: 'Refund Action', icon: '↺', description: 'Issue a refund with reason', section: 'ops' },
+  { type: 'flags', label: 'Feature Flags', icon: '⎇', description: 'Toggle flags per environment', section: 'ops' },
+  { type: 'audit', label: 'Audit Log', icon: '≣', description: 'Who did what, and when', section: 'ops' },
 ]
 
 const KEYWORDS: Record<BlockType, string[]> = {
@@ -51,7 +67,7 @@ const KEYWORDS: Record<BlockType, string[]> = {
   form: ['form', 'submit', 'intake', 'request', 'survey', 'upload'],
   chart: ['chart', 'graph', 'plot', 'analytics', 'trend', 'visualiz'],
   kpi: ['kpi', 'metric', 'stat', 'count', 'total', 'number'],
-  list: ['list', 'feed', 'queue', 'log', 'history', 'activity'],
+  list: ['list', 'feed', 'history', 'activity'],
   button: ['button', 'action', 'trigger', 'run', 'deploy', 'approve'],
   input: ['search', 'filter', 'lookup', 'find', 'query'],
   text: ['text', 'note', 'heading', 'title', 'description', 'label'],
@@ -60,6 +76,11 @@ const KEYWORDS: Record<BlockType, string[]> = {
   payment: ['payment', 'pay', 'send money', 'transfer', 'p2p', 'checkout'],
   card: ['card', 'virtual card', 'debit card', 'credit card', 'freeze'],
   linkbank: ['link bank', 'connect bank', 'plaid', 'bank account', 'ach'],
+  customer: ['customer', 'user info', 'profile', 'identity', 'kyc', 'contact'],
+  queue: ['queue', 'review', 'case', 'moderation', 'escalation', 'triage'],
+  refund: ['refund', 'chargeback', 'reimburse', 'dispute'],
+  flags: ['flag', 'feature flag', 'toggle', 'rollout', 'experiment', 'kill switch'],
+  audit: ['audit', 'compliance', 'trail', 'who did'],
 }
 
 export function blocksFromPrompt(prompt: string): BlockType[] {

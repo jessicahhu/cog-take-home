@@ -6,8 +6,9 @@ A whiteboard-style interface for building internal tools. Drag feature blocks (t
 
 - **Whiteboard canvas** — a dotted-grid board in the center of the screen where feature blocks live
 - **Fintech blocks** — a dedicated palette section for consumer fintech apps: balance card, transaction feed, payment form, virtual card, and bank-account linking
+- **Internal ops blocks** — building blocks drawn from real internal tools (KYC review queues, refunds dashboards, feature-flag admin panels): customer info, review queue, refund action, feature flags, and audit log
 - **Drag and drop** — drag features from the left palette onto the board, then reposition them freely
-- **Prompt Devin** — describe what you want in the prompt bar (e.g. "a table of support tickets with a search filter and a chart") and matching feature blocks are created on the board
+- **Devin chat** — a chat panel on the right; describe what you want (e.g. "a KYC review queue with customer info and an audit log") and matching feature blocks are created on the board
 - **Edit in place** — rename blocks, select them, delete them, or clear the whole board
 
 ## Getting started

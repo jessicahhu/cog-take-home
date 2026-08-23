@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import BlockCard from './BlockCard'
 import type { Block, BlockType } from './types'
-import { PALETTE, blocksFromPrompt } from './types'
+import { PALETTE, SECTION_TITLES, blocksFromPrompt } from './types'
 import './App.css'
 
 let nextId = 1
@@ -21,14 +21,39 @@ const LABELS: Record<BlockType, string> = {
   payment: 'Payment Form',
   card: 'Virtual Card',
   linkbank: 'Link Bank Account',
+  customer: 'Customer Info',
+  queue: 'Review Queue',
+  refund: 'Refund Action',
+  flags: 'Feature Flags',
+  audit: 'Audit Log',
 }
+
+interface ChatMessage {
+  id: string
+  role: 'user' | 'devin'
+  text: string
+  pending?: boolean
+}
+
+const SECTIONS = ['general', 'fintech', 'ops'] as const
 
 export default function App() {
   const [blocks, setBlocks] = useState<Block[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [prompt, setPrompt] = useState('')
-  const [status, setStatus] = useState<string | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      role: 'devin',
+      text: 'Hi! Describe the internal tool you need — e.g. “a KYC review queue with customer info and an audit log” — and I’ll add the features to your board.',
+    },
+  ])
   const canvasRef = useRef<HTMLDivElement>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const addBlock = useCallback((type: BlockType, x: number, y: number, building = false) => {
     const id = newId()
@@ -63,13 +88,30 @@ export default function App() {
     if (!text) return
     setPrompt('')
     const types = blocksFromPrompt(text)
-    setStatus(`Devin is creating ${types.length} feature${types.length > 1 ? 's' : ''}…`)
+    const userMsg: ChatMessage = { id: newId(), role: 'user', text }
+    const pendingMsg: ChatMessage = {
+      id: newId(),
+      role: 'devin',
+      text: `Building ${types.length} feature${types.length > 1 ? 's' : ''}…`,
+      pending: true,
+    }
+    setMessages((prev) => [...prev, userMsg, pendingMsg])
     const rect = canvasRef.current?.getBoundingClientRect()
     const baseX = rect ? Math.max(40, rect.width / 2 - (types.length * 240) / 2) : 80
     const ids = types.map((type, i) => addBlock(type, baseX + i * 250, 120 + (i % 2) * 40, true))
     window.setTimeout(() => {
       setBlocks((prev) => prev.map((b) => (ids.includes(b.id) ? { ...b, building: false } : b)))
-      setStatus(null)
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === pendingMsg.id
+            ? {
+                ...m,
+                pending: false,
+                text: `Added ${types.map((t) => LABELS[t]).join(', ')} to your board. Drag them into place, or tell me what to build next.`,
+              }
+            : m,
+        ),
+      )
     }, 1500)
   }
 
@@ -94,9 +136,9 @@ export default function App() {
       <div className="body">
         <aside className="palette">
           <p className="palette-hint">Drag onto the board</p>
-          {(['general', 'fintech'] as const).map((section) => (
+          {SECTIONS.map((section) => (
             <section key={section}>
-              <h2>{section === 'general' ? 'Features' : 'Fintech'}</h2>
+              <h2>{SECTION_TITLES[section]}</h2>
               {PALETTE.filter((item) => item.section === section).map((item) => (
                 <div
                   key={item.type}
@@ -127,7 +169,7 @@ export default function App() {
           {blocks.length === 0 && (
             <div className="empty-state">
               <p className="empty-title">Your whiteboard is empty</p>
-              <p>Drag a feature from the left, or ask Devin below.</p>
+              <p>Drag a feature from the left, or ask Devin on the right.</p>
             </div>
           )}
           {blocks.map((block) => (
@@ -142,20 +184,37 @@ export default function App() {
             />
           ))}
         </main>
-      </div>
 
-      <form className="prompt-bar" onSubmit={handlePrompt}>
-        {status && <div className="prompt-status">{status}</div>}
-        <input
-          className="prompt-input"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Ask Devin to create a feature… e.g. “a table of support tickets with a search filter and a chart”"
-        />
-        <button className="prompt-submit" type="submit" disabled={!prompt.trim()}>
-          Create
-        </button>
-      </form>
+        <aside className="chat">
+          <div className="chat-header">
+            <span className="chat-avatar">◆</span>
+            <span>
+              <span className="chat-title">Devin</span>
+              <span className="chat-sub">describe features to build</span>
+            </span>
+          </div>
+          <div className="chat-messages">
+            {messages.map((m) => (
+              <div key={m.id} className={`chat-msg ${m.role}${m.pending ? ' pending' : ''}`}>
+                {m.pending && <span className="spinner" />}
+                {m.text}
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+          <form className="chat-input-row" onSubmit={handlePrompt}>
+            <input
+              className="chat-input"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Ask Devin to create a feature…"
+            />
+            <button className="chat-send" type="submit" disabled={!prompt.trim()}>
+              Send
+            </button>
+          </form>
+        </aside>
+      </div>
     </div>
   )
 }
