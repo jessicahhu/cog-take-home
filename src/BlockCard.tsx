@@ -1,14 +1,16 @@
 import { useRef } from 'react'
 import type { Block } from './types'
-import { PALETTE } from './types'
+import { BLOCK_IO, PALETTE } from './types'
 
 interface Props {
   block: Block
   selected: boolean
+  linkTarget: 'valid' | 'invalid' | null
   onSelect: (id: string) => void
   onMove: (id: string, x: number, y: number) => void
   onDelete: (id: string) => void
   onRename: (id: string, label: string) => void
+  onStartLink: (id: string, e: React.PointerEvent) => void
 }
 
 function BlockPreview({ type }: { type: Block['type'] }) {
@@ -190,11 +192,21 @@ function BlockPreview({ type }: { type: Block['type'] }) {
   }
 }
 
-export default function BlockCard({ block, selected, onSelect, onMove, onDelete, onRename }: Props) {
+export default function BlockCard({
+  block,
+  selected,
+  linkTarget,
+  onSelect,
+  onMove,
+  onDelete,
+  onRename,
+  onStartLink,
+}: Props) {
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
+  const io = BLOCK_IO[block.type]
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('button, input')) return
+    if ((e.target as HTMLElement).closest('button, input, .port')) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragState.current = { startX: e.clientX, startY: e.clientY, origX: block.x, origY: block.y }
     onSelect(block.id)
@@ -212,14 +224,28 @@ export default function BlockCard({ block, selected, onSelect, onMove, onDelete,
 
   const icon = PALETTE.find((p) => p.type === block.type)?.icon ?? '▦'
 
+  const targetClass = linkTarget === 'valid' ? ' link-valid' : linkTarget === 'invalid' ? ' link-invalid' : ''
+
   return (
     <div
-      className={`block-card${selected ? ' selected' : ''}${block.building ? ' building' : ''}`}
+      className={`block-card${selected ? ' selected' : ''}${block.building ? ' building' : ''}${targetClass}`}
       style={{ left: block.x, top: block.y }}
+      data-block-id={block.id}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
+      {io.accepts.length > 0 && <span className="port port-in" title="Input — receives data from links" />}
+      {io.emits !== null && (
+        <span
+          className="port port-out"
+          title="Output — drag to another block to link"
+          onPointerDown={(e) => {
+            e.stopPropagation()
+            onStartLink(block.id, e)
+          }}
+        />
+      )}
       <div className="block-header">
         <span className="block-icon">{icon}</span>
         <input
