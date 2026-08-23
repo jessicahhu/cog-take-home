@@ -83,6 +83,69 @@ const KEYWORDS: Record<BlockType, string[]> = {
   audit: ['audit', 'compliance', 'trail', 'who did'],
 }
 
+export interface SavedToolBlock {
+  type: BlockType
+  label: string
+  x: number
+  y: number
+}
+
+export interface SavedTool {
+  id: string
+  name: string
+  savedAt: string
+  blocks: SavedToolBlock[]
+}
+
+const STORAGE_KEY = 'toolboard-saved-tools'
+const VALID_TYPES = new Set<string>(PALETTE.map((p) => p.type))
+
+function isSavedTool(value: unknown): value is SavedTool {
+  if (typeof value !== 'object' || value === null) return false
+  const tool = value as Record<string, unknown>
+  return (
+    typeof tool.id === 'string' &&
+    typeof tool.name === 'string' &&
+    typeof tool.savedAt === 'string' &&
+    Array.isArray(tool.blocks) &&
+    tool.blocks.every((b: unknown) => {
+      if (typeof b !== 'object' || b === null) return false
+      const block = b as Record<string, unknown>
+      return (
+        typeof block.type === 'string' &&
+        VALID_TYPES.has(block.type) &&
+        typeof block.label === 'string' &&
+        typeof block.x === 'number' &&
+        typeof block.y === 'number'
+      )
+    })
+  )
+}
+
+export function loadSavedTools(): SavedTool[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter(isSavedTool) : []
+  } catch {
+    return []
+  }
+}
+
+export function persistSavedTools(tools: SavedTool[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tools))
+}
+
+export function parseSavedTool(json: string): SavedTool | null {
+  try {
+    const parsed: unknown = JSON.parse(json)
+    return isSavedTool(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 export function blocksFromPrompt(prompt: string): BlockType[] {
   const lower = prompt.toLowerCase()
   const matches = (Object.keys(KEYWORDS) as BlockType[]).filter((type) =>

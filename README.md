@@ -10,6 +10,7 @@ A whiteboard-style interface for building internal tools. Drag feature blocks (t
 - **Drag and drop** — drag features from the left palette onto the board, then reposition them freely
 - **Devin chat** — a chat panel on the right; describe what you want (e.g. "a KYC review queue with customer info and an audit log") and matching feature blocks are created on the board
 - **Edit in place** — rename blocks, select them, delete them, or clear the whole board
+- **Save and import tools** — save the current board as a named tool ("Save as tool"); the My Tools section in the left panel lets you import it back onto the board, export it as a `.toolboard.json` file, or import a tool from a file (saved tools persist in localStorage)
 
 ## Getting started
 

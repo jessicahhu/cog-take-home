@@ -154,6 +154,93 @@ body {
   padding: 1px 8px;
 }
 
+.tools-empty {
+  margin: 0 4px 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.tool-item {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.tool-import {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border: none;
+  background: none;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.tool-import:hover {
+  background: var(--accent-soft);
+}
+
+.tool-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.tool-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tool-actions {
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+}
+
+.tool-actions button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.tool-actions button:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tool-file-import {
+  width: 100%;
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--muted);
+  border-radius: 10px;
+  padding: 7px 0;
+  font-size: 12px;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.tool-file-import:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .palette-hint {
   margin: 0 4px 10px;
   font-size: 12px;
