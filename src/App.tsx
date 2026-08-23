@@ -36,6 +36,7 @@ interface ChatMessage {
 }
 
 const SECTIONS = ['general', 'fintech', 'ops'] as const
+type Section = (typeof SECTIONS)[number]
 
 export default function App() {
   const [blocks, setBlocks] = useState<Block[]>([])
@@ -48,8 +49,16 @@ export default function App() {
       text: 'Hi! Describe the internal tool you need — e.g. “a KYC review queue with customer info and an audit log” — and I’ll add the features to your board.',
     },
   ])
+  const [collapsed, setCollapsed] = useState<Record<Section, boolean>>({
+    general: false,
+    fintech: false,
+    ops: false,
+  })
   const canvasRef = useRef<HTMLDivElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
+
+  const toggleSection = (section: Section) =>
+    setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }))
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -138,21 +147,33 @@ export default function App() {
           <p className="palette-hint">Drag onto the board</p>
           {SECTIONS.map((section) => (
             <section key={section}>
-              <h2>{SECTION_TITLES[section]}</h2>
-              {PALETTE.filter((item) => item.section === section).map((item) => (
-                <div
-                  key={item.type}
-                  className="palette-item"
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData('block-type', item.type)}
-                >
-                  <span className="palette-icon">{item.icon}</span>
-                  <span>
-                    <span className="palette-label">{item.label}</span>
-                    <span className="palette-desc">{item.description}</span>
-                  </span>
-                </div>
-              ))}
+              <button
+                type="button"
+                className="section-toggle"
+                onClick={() => toggleSection(section)}
+                aria-expanded={!collapsed[section]}
+              >
+                <span className={`chevron${collapsed[section] ? ' closed' : ''}`}>▾</span>
+                <h2>{SECTION_TITLES[section]}</h2>
+                <span className="section-count">
+                  {PALETTE.filter((item) => item.section === section).length}
+                </span>
+              </button>
+              {!collapsed[section] &&
+                PALETTE.filter((item) => item.section === section).map((item) => (
+                  <div
+                    key={item.type}
+                    className="palette-item"
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData('block-type', item.type)}
+                  >
+                    <span className="palette-icon">{item.icon}</span>
+                    <span>
+                      <span className="palette-label">{item.label}</span>
+                      <span className="palette-desc">{item.description}</span>
+                    </span>
+                  </div>
+                ))}
             </section>
           ))}
         </aside>

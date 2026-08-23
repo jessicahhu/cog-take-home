@@ -106,16 +106,52 @@ body {
   overflow-y: auto;
 }
 
-.palette section + section h2 {
-  margin-top: 16px;
+.palette section + section .section-toggle {
+  margin-top: 10px;
+}
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 6px 4px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.section-toggle:hover {
+  background: #f3f4f6;
+}
+
+.section-toggle .chevron {
+  color: var(--muted);
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+
+.section-toggle .chevron.closed {
+  transform: rotate(-90deg);
 }
 
 .palette h2 {
-  margin: 0 4px 8px;
+  margin: 0;
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
+}
+
+.section-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 
 .palette-hint {
