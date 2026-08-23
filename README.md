@@ -5,6 +5,7 @@ A whiteboard-style interface for building internal tools. Drag feature blocks (t
 ## Features
 
 - **Whiteboard canvas** — a dotted-grid board in the center of the screen where feature blocks live
+- **Fintech blocks** — a dedicated palette section for consumer fintech apps: balance card, transaction feed, payment form, virtual card, and bank-account linking
 - **Drag and drop** — drag features from the left palette onto the board, then reposition them freely
 - **Prompt Devin** — describe what you want in the prompt bar (e.g. "a table of support tickets with a search filter and a chart") and matching feature blocks are created on the board
 - **Edit in place** — rename blocks, select them, delete them, or clear the whole board

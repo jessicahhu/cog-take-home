@@ -72,6 +72,57 @@ function BlockPreview({ type }: { type: Block['type'] }) {
           <div className="line" />
         </div>
       )
+    case 'balance':
+      return (
+        <div className="preview preview-balance">
+          <span className="caption">Available balance</span>
+          <span className="amount">$4,562.90</span>
+          <span className="delta">▲ $210 this week</span>
+        </div>
+      )
+    case 'transactions':
+      return (
+        <div className="preview preview-transactions">
+          <div className="txn">
+            <span>Blue Bottle</span>
+            <span className="debit">−$6.40</span>
+          </div>
+          <div className="txn">
+            <span>Payroll</span>
+            <span className="credit">+$2,150.00</span>
+          </div>
+          <div className="txn">
+            <span>Lyft</span>
+            <span className="debit">−$18.25</span>
+          </div>
+        </div>
+      )
+    case 'payment':
+      return (
+        <div className="preview preview-payment">
+          <div className="field">To: @recipient</div>
+          <div className="field">$ 0.00</div>
+          <div className="send">Send</div>
+        </div>
+      )
+    case 'card':
+      return (
+        <div className="preview preview-card">
+          <div className="chip" />
+          <div className="number">•••• 4242</div>
+          <div className="meta">
+            <span>EXP 09/29</span>
+            <span className="freeze">Freeze</span>
+          </div>
+        </div>
+      )
+    case 'linkbank':
+      return (
+        <div className="preview preview-linkbank">
+          <div className="bank">🏦 Chase •••6841</div>
+          <div className="connect">+ Link account</div>
+        </div>
+      )
   }
 }
 

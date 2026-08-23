@@ -16,6 +16,11 @@ const LABELS: Record<BlockType, string> = {
   button: 'Action Button',
   input: 'Search Input',
   text: 'Text Block',
+  balance: 'Balance Card',
+  transactions: 'Transaction Feed',
+  payment: 'Payment Form',
+  card: 'Virtual Card',
+  linkbank: 'Link Bank Account',
 }
 
 export default function App() {
@@ -88,21 +93,25 @@ export default function App() {
 
       <div className="body">
         <aside className="palette">
-          <h2>Features</h2>
           <p className="palette-hint">Drag onto the board</p>
-          {PALETTE.map((item) => (
-            <div
-              key={item.type}
-              className="palette-item"
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('block-type', item.type)}
-            >
-              <span className="palette-icon">{item.icon}</span>
-              <span>
-                <span className="palette-label">{item.label}</span>
-                <span className="palette-desc">{item.description}</span>
-              </span>
-            </div>
+          {(['general', 'fintech'] as const).map((section) => (
+            <section key={section}>
+              <h2>{section === 'general' ? 'Features' : 'Fintech'}</h2>
+              {PALETTE.filter((item) => item.section === section).map((item) => (
+                <div
+                  key={item.type}
+                  className="palette-item"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData('block-type', item.type)}
+                >
+                  <span className="palette-icon">{item.icon}</span>
+                  <span>
+                    <span className="palette-label">{item.label}</span>
+                    <span className="palette-desc">{item.description}</span>
+                  </span>
+                </div>
+              ))}
+            </section>
           ))}
         </aside>
 

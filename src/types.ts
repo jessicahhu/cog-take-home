@@ -7,6 +7,11 @@ export type BlockType =
   | 'button'
   | 'input'
   | 'text'
+  | 'balance'
+  | 'transactions'
+  | 'payment'
+  | 'card'
+  | 'linkbank'
 
 export interface Block {
   id: string
@@ -22,17 +27,23 @@ export interface PaletteItem {
   label: string
   icon: string
   description: string
+  section: 'general' | 'fintech'
 }
 
 export const PALETTE: PaletteItem[] = [
-  { type: 'table', label: 'Data Table', icon: '▦', description: 'Sortable rows of records' },
-  { type: 'form', label: 'Form', icon: '✎', description: 'Collect structured input' },
-  { type: 'chart', label: 'Chart', icon: '◔', description: 'Visualize metrics' },
-  { type: 'kpi', label: 'KPI Card', icon: '⬢', description: 'Single headline number' },
-  { type: 'list', label: 'List', icon: '☰', description: 'Scrollable item feed' },
-  { type: 'button', label: 'Action Button', icon: '▶', description: 'Trigger a workflow' },
-  { type: 'input', label: 'Search Input', icon: '⌕', description: 'Filter or look up data' },
-  { type: 'text', label: 'Text Block', icon: '¶', description: 'Notes and headings' },
+  { type: 'table', label: 'Data Table', icon: '▦', description: 'Sortable rows of records', section: 'general' },
+  { type: 'form', label: 'Form', icon: '✎', description: 'Collect structured input', section: 'general' },
+  { type: 'chart', label: 'Chart', icon: '◔', description: 'Visualize metrics', section: 'general' },
+  { type: 'kpi', label: 'KPI Card', icon: '⬢', description: 'Single headline number', section: 'general' },
+  { type: 'list', label: 'List', icon: '☰', description: 'Scrollable item feed', section: 'general' },
+  { type: 'button', label: 'Action Button', icon: '▶', description: 'Trigger a workflow', section: 'general' },
+  { type: 'input', label: 'Search Input', icon: '⌕', description: 'Filter or look up data', section: 'general' },
+  { type: 'text', label: 'Text Block', icon: '¶', description: 'Notes and headings', section: 'general' },
+  { type: 'balance', label: 'Balance Card', icon: '$', description: 'Account balance at a glance', section: 'fintech' },
+  { type: 'transactions', label: 'Transaction Feed', icon: '⇅', description: 'Recent debits and credits', section: 'fintech' },
+  { type: 'payment', label: 'Payment Form', icon: '➤', description: 'Send money to a recipient', section: 'fintech' },
+  { type: 'card', label: 'Virtual Card', icon: '▭', description: 'Card number, expiry, and freeze', section: 'fintech' },
+  { type: 'linkbank', label: 'Link Bank Account', icon: '⛓', description: 'Plaid-style account connect', section: 'fintech' },
 ]
 
 const KEYWORDS: Record<BlockType, string[]> = {
@@ -44,6 +55,11 @@ const KEYWORDS: Record<BlockType, string[]> = {
   button: ['button', 'action', 'trigger', 'run', 'deploy', 'approve'],
   input: ['search', 'filter', 'lookup', 'find', 'query'],
   text: ['text', 'note', 'heading', 'title', 'description', 'label'],
+  balance: ['balance', 'account balance', 'wallet', 'funds', 'available'],
+  transactions: ['transaction', 'debit', 'credit', 'purchases', 'spending history', 'statement'],
+  payment: ['payment', 'pay', 'send money', 'transfer', 'p2p', 'checkout'],
+  card: ['card', 'virtual card', 'debit card', 'credit card', 'freeze'],
+  linkbank: ['link bank', 'connect bank', 'plaid', 'bank account', 'ach'],
 }
 
 export function blocksFromPrompt(prompt: string): BlockType[] {
