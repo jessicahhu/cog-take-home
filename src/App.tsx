@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { NewBlockSpec } from './agent'
+import { planPrompt } from './agent'
+import { answerQuestion } from './answers'
 import BlockCard from './BlockCard'
 import Inspector from './Inspector'
 import RunView from './RunView'
@@ -21,7 +24,6 @@ import {
   ROLE_LABELS,
   PALETTE,
   SECTION_TITLES,
-  blocksFromPrompt,
   canLink,
   compileTool,
   defaultConfig,
@@ -102,7 +104,7 @@ export default function App() {
     {
       id: 'welcome',
       role: 'devin',
-      text: 'Hi! Describe the internal tool you need — e.g. “a KYC review queue with customer info and an audit log” — and I’ll add the features to your board. Link blocks by dragging from a block’s right-side port, then hit Compile & Run to use the tool.',
+      text: 'Hi! Describe the internal tool you need — e.g. “a vendor onboarding form with company name, tax id and contact email” — and I’ll build it, naming and pre-filling the blocks. I can also change what’s already on the board (“rename it to Payouts”, “add a phone field”, “make the queue admin only”, “show 20 rows”) or explain how any part of Toolboard works.',
     },
   ])
   const [collapsed, setCollapsed] = useState<Record<PanelKey, boolean>>({
@@ -141,16 +143,22 @@ export default function App() {
     setMessages((prev) => [...prev, { id: newId(), role: 'devin', text }])
   }, [])
 
-  const addBlock = useCallback(
-    (type: BlockType, x: number, y: number, building = false) => {
+  const addConfiguredBlock = useCallback(
+    (spec: NewBlockSpec, x: number, y: number, building = false) => {
       const id = newId()
       setBlocks((prev) => [
         ...prev,
-        { id, type, label: LABELS[type], x, y, pageId: activePageId, config: defaultConfig(type), building },
+        { id, type: spec.type, label: spec.label, x, y, pageId: activePageId, config: spec.config, building },
       ])
       return id
     },
     [activePageId],
+  )
+
+  const addBlock = useCallback(
+    (type: BlockType, x: number, y: number, building = false) =>
+      addConfiguredBlock({ type, label: LABELS[type], config: defaultConfig(type) }, x, y, building),
+    [addConfiguredBlock],
   )
 
   const handleDrop = (e: React.DragEvent) => {
@@ -286,8 +294,57 @@ export default function App() {
     const text = prompt.trim()
     if (!text) return
     setPrompt('')
-    const types = blocksFromPrompt(text)
+    const answer = answerQuestion(text)
+    if (answer) {
+      const question: ChatMessage = { id: newId(), role: 'user', text }
+      const thinking: ChatMessage = { id: newId(), role: 'devin', text: 'Thinking…', pending: true }
+      setMessages((prev) => [...prev, question, thinking])
+      window.setTimeout(() => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === thinking.id ? { ...m, pending: false, text: answer } : m)),
+        )
+      }, 500)
+      return
+    }
+    const plan = planPrompt(text, { blocks, activePageId, selectedId })
     const userMsg: ChatMessage = { id: newId(), role: 'user', text }
+
+    if (plan.kind === 'clarify') {
+      setSelectedId(plan.blockId)
+      setMessages((prev) => [...prev, userMsg, { id: newId(), role: 'devin', text: plan.text }])
+      return
+    }
+
+    if (plan.kind === 'edit') {
+      const { patch } = plan
+      const editing: ChatMessage = { id: newId(), role: 'devin', text: 'Editing…', pending: true }
+      setMessages((prev) => [...prev, userMsg, editing])
+      if (patch.remove) handleDelete(patch.blockId)
+      else {
+        setBlocks((prev) =>
+          prev.map((b) =>
+            b.id === patch.blockId
+              ? {
+                  ...b,
+                  ...(patch.label ? { label: patch.label } : {}),
+                  ...(patch.role ? { role: patch.role } : {}),
+                  ...(patch.config ? { config: patch.config } : {}),
+                }
+              : b,
+          ),
+        )
+        setSelectedId(patch.blockId)
+      }
+      window.setTimeout(() => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === editing.id ? { ...m, pending: false, text: plan.summary } : m)),
+        )
+      }, 600)
+      return
+    }
+
+    const specs = plan.specs
+    const types = specs.map((s) => s.type)
     const pendingMsg: ChatMessage = {
       id: newId(),
       role: 'devin',
@@ -297,7 +354,7 @@ export default function App() {
     setMessages((prev) => [...prev, userMsg, pendingMsg])
     const rect = canvasRef.current?.getBoundingClientRect()
     const baseX = rect ? Math.max(40, rect.width / 2 - (types.length * 240) / 2) : 80
-    const ids = types.map((type, i) => addBlock(type, baseX + i * 250, 120 + (i % 2) * 40, true))
+    const ids = specs.map((spec, i) => addConfiguredBlock(spec, baseX + i * 250, 120 + (i % 2) * 40, true))
     const autoLinks: Link[] = []
     for (let i = 0; i < types.length; i++) {
       for (let j = 0; j < types.length; j++) {
@@ -315,10 +372,11 @@ export default function App() {
     window.setTimeout(() => {
       setBlocks((prev) => prev.map((b) => (ids.includes(b.id) ? { ...b, building: false } : b)))
       setLinks((prev) => [...prev, ...autoLinks])
+      const nameOf = (blockId: string) => specs[ids.indexOf(blockId)].label
       const linkNote =
         autoLinks.length > 0
           ? ` I also linked ${autoLinks
-              .map((l) => `${LABELS[types[ids.indexOf(l.from)]]} → ${LABELS[types[ids.indexOf(l.to)]]}`)
+              .map((l) => `${nameOf(l.from)} → ${nameOf(l.to)}`)
               .join(', ')} so data flows between them.`
           : ''
       setMessages((prev) =>
@@ -327,7 +385,7 @@ export default function App() {
             ? {
                 ...m,
                 pending: false,
-                text: `Added ${types.map((t) => LABELS[t]).join(', ')} to your board.${linkNote} Hit Compile & Run to use them.`,
+                text: `${plan.note ? `${plan.note} ` : ''}Added ${specs.map((s) => s.label).join(', ')} to your board.${linkNote} Hit Compile & Run to use them.`,
               }
             : m,
         ),
@@ -809,7 +867,7 @@ export default function App() {
             <span className="chat-avatar">◆</span>
             <span>
               <span className="chat-title">Devin</span>
-              <span className="chat-sub">describe features to build</span>
+              <span className="chat-sub">build features or ask how things work</span>
             </span>
           </div>
           <div className="chat-messages">

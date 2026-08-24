@@ -578,11 +578,20 @@ export function compileTool(blocks: Block[], links: Link[], pages: Page[]): Comp
   return { ok: errors.length === 0, errors, warnings }
 }
 
-export function blocksFromPrompt(prompt: string): BlockType[] {
+/** Keywords match at a word boundary, so "refunds" doesn't match "funds". */
+const hasKeyword = (lower: string, kw: string) =>
+  new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(lower)
+
+/** Block types whose keywords appear in a prompt — empty when nothing matches. */
+export function matchBlockTypes(prompt: string): BlockType[] {
   const lower = prompt.toLowerCase()
-  const matches = (Object.keys(KEYWORDS) as BlockType[]).filter((type) =>
-    KEYWORDS[type].some((kw) => lower.includes(kw)),
+  return (Object.keys(KEYWORDS) as BlockType[]).filter((type) =>
+    KEYWORDS[type].some((kw) => hasKeyword(lower, kw)),
   )
+}
+
+export function blocksFromPrompt(prompt: string): BlockType[] {
+  const matches = matchBlockTypes(prompt)
   if (matches.length > 0) return matches
   return ['table', 'form']
 }
