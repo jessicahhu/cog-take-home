@@ -26,7 +26,7 @@ const TOPICS: Topic[] = [
   {
     keywords: ['auth', 'sign in', 'login', 'role', 'permission', 'admin', 'viewer', 'ops', 'gate', 'who can see', 'security'],
     answer:
-      'Turn on “Require sign-in” in the Access section and the compiled tool opens behind a sign-in screen with demo users (admin/admin, ops/ops, viewer/viewer). Every page and block carries a role badge (All / Ops / Adm) — anything above the signed-in user’s role is hidden. Separately, “Only admins see submitted records” (on by default) hides record contents in tables, lists, queues, feeds, audit logs, customer info and connectors, so a viewer can submit a form without seeing anyone’s submissions; each of those blocks can override it with “Who sees records” in the Inspector. This is demo-grade, client-side gating — not a substitute for real server-side authorization.',
+      'Turn on “Require sign-in” in the Access section and the compiled tool opens behind a sign-in screen with demo users (admin/admin, ops/ops, viewer/viewer). Every page and block carries a role badge (All / Ops / Adm) and gating is exact: “All” shows to anyone signed in, while “Ops” shows only to ops and “Adm” only to admins — an ops-only block is hidden from admins too. Separately, “Only admins see submitted records” (on by default) hides record contents in tables, lists, queues, feeds, audit logs, customer info and connectors, so a viewer can submit a form without seeing anyone’s submissions; each of those blocks can override it with “Who sees records” in the Inspector. This is demo-grade, client-side gating — not a substitute for real server-side authorization.',
   },
   {
     keywords: ['inspector', 'configure', 'edit block', 'dynamic', 'customi', 'field', 'column', 'seed row', 'starting row'],
@@ -36,7 +36,7 @@ const TOPICS: Topic[] = [
   {
     keywords: ['page', 'sitemap', 'multi-page', 'navigation', 'tab'],
     answer:
-      'The Sitemap section in the left panel gives a tool multiple pages. Blocks belong to the page that was active when you dropped them, each page can be renamed and role-gated, and in run mode the pages become navigation tabs (pages above your role simply do not appear).',
+      'The Sitemap section in the left panel gives a tool multiple pages. Blocks belong to the page that was active when you dropped them, each page can be renamed and role-gated, and in run mode the pages become navigation tabs (pages gated to another role simply do not appear).',
   },
   {
     keywords: ['connector', 'stripe', 'postgres', 'sheet', 'slack', 'email', 'webhook', 'external', 'integration', 'api'],

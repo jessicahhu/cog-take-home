@@ -24,15 +24,30 @@ export type BlockType =
   | 'email'
   | 'webhook'
 
-/** Minimum role required to see a page or block at runtime. */
+/** Role that may see a page or block at runtime. */
 export type Role = 'everyone' | 'ops' | 'admin'
 
-export const ROLE_RANK: Record<Role, number> = { everyone: 0, ops: 1, admin: 2 }
-
+/** How a gate reads on a page or block badge. */
 export const ROLE_LABELS: Record<Role, string> = {
   everyone: 'Everyone',
-  ops: 'Ops+',
+  ops: 'Ops only',
   admin: 'Admin only',
+}
+
+/** How a signed-in user's own role reads. */
+export const USER_ROLE_LABELS: Record<Role, string> = {
+  everyone: 'Viewer',
+  ops: 'Ops',
+  admin: 'Admin',
+}
+
+/**
+ * Gating is exact, not hierarchical: `everyone` is visible to every signed-in
+ * user, while `ops` and `admin` are visible only to that role.
+ */
+export function canSeeRole(required: Role | undefined, userRole: Role): boolean {
+  const role = required ?? 'everyone'
+  return role === 'everyone' || role === userRole
 }
 
 export interface DemoUser {
@@ -50,7 +65,7 @@ export const DEMO_USERS: DemoUser[] = [
 
 export interface AuthConfig {
   required: boolean
-  /** Hide submitted records from anyone below admin (blocks can override with `dataRole`). */
+  /** Show submitted records to admins only (blocks can override with `dataRole`). */
   adminOnlyData?: boolean
 }
 
@@ -104,7 +119,7 @@ export interface BlockConfig {
   startingBalance?: number
   /** input */
   placeholder?: string
-  /** minimum role required to see the records this block displays */
+  /** role that sees the records this block displays */
   dataRole?: Role
   /** starting rows for queues, feeds, tables and connector sources */
   seedRows?: SeedRow[]
@@ -433,7 +448,7 @@ export interface SavedTool {
   pages?: string[]
   links?: SavedToolLink[]
   backend?: BackendConfig
-  /** Parallel to `pages`: minimum role per page. Absent in older exports. */
+  /** Parallel to `pages`: role per page. Absent in older exports. */
   pageRoles?: Role[]
   auth?: AuthConfig
 }

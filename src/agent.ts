@@ -122,7 +122,7 @@ function toColumns(names: string[]): ColumnKey[] {
 const roleFromText = (lower: string): Role | null => {
   if (/\b(admin[- ]only|only admins?|admins? only|restrict\w* (?:it |them )?to admin|admins? can)\b/.test(lower))
     return 'admin'
-  if (/\b(ops[- ]only|only ops|ops\+|ops and admin|restrict\w* (?:it |them )?to ops)\b/.test(lower)) return 'ops'
+  if (/\b(ops[- ]only|only ops|ops team|restrict\w* (?:it |them )?to ops)\b/.test(lower)) return 'ops'
   if (/\b(everyone|anyone|all users|ungate|un-gate)\b/.test(lower)) return 'everyone'
   return null
 }

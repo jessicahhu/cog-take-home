@@ -200,7 +200,7 @@ export default function Inspector({ block, onChange, onClose }: Props) {
             >
               <option value="inherit">Follow Access setting</option>
               <option value="everyone">Everyone signed in</option>
-              <option value="ops">Ops+</option>
+              <option value="ops">Ops only</option>
               <option value="admin">Admin only</option>
             </select>
           </label>
