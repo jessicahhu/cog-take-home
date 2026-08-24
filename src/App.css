@@ -2194,3 +2194,16 @@ body {
   color: #fff;
   font-size: 10px;
 }
+
+.preview-text {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.4;
+  max-height: 46px;
+  overflow: hidden;
+}
+
+.inspector-amount {
+  width: 80px;
+  flex: 0 0 auto;
+}

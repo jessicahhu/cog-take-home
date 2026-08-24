@@ -76,6 +76,14 @@ export const COLUMN_LABELS: Record<ColumnKey, string> = {
 
 export const ALL_COLUMNS: ColumnKey[] = ['title', 'details', 'amount', 'status', 'source', 'when']
 
+/** A pre-populated record for blocks that start with data (queues, feeds, connectors). */
+export interface SeedRow {
+  id: string
+  title: string
+  amount?: number
+  status?: 'pending' | 'approved' | 'rejected'
+}
+
 /** Per-block settings edited in the builder's Inspector. Everything is optional; defaults come from `defaultConfig`. */
 export interface BlockConfig {
   /** form / payment / refund */
@@ -94,6 +102,19 @@ export interface BlockConfig {
   startingBalance?: number
   /** input */
   placeholder?: string
+  /** starting rows for queues, feeds, tables and connector sources */
+  seedRows?: SeedRow[]
+  /** button: title of the record it emits */
+  emitTitle?: string
+  /** customer info */
+  customerName?: string
+  customerEmail?: string
+  kycStatus?: 'pending' | 'approved' | 'rejected'
+  /** virtual card */
+  cardNumber?: string
+  cardExpiry?: string
+  /** link bank account */
+  bankName?: string
   /** feature flags */
   flags?: string[]
   /** connectors */
@@ -105,6 +126,13 @@ export interface BlockConfig {
 
 let fieldSeq = 0
 export const newFieldId = () => `field-${Date.now().toString(36)}-${fieldSeq++}`
+
+const row = (title: string, amount?: number, status?: SeedRow['status']): SeedRow => ({
+  id: newFieldId(),
+  title,
+  ...(amount === undefined ? {} : { amount }),
+  ...(status === undefined ? {} : { status }),
+})
 
 const field = (label: string, type: FieldType, required = false, options?: string[]): FormField => ({
   id: newFieldId(),
@@ -136,16 +164,61 @@ export function defaultConfig(type: BlockType): BlockConfig {
         submitLabel: 'Issue refund',
       }
     case 'table':
-      return { columns: ['title', 'amount', 'when'], rowLimit: 6 }
+      return { columns: ['title', 'amount', 'when'], rowLimit: 6, seedRows: [] }
     case 'list':
-    case 'transactions':
-    case 'queue':
     case 'audit':
+      return { rowLimit: 6, seedRows: [] }
+    case 'chart':
+      return { rowLimit: 8, seedRows: [row('Mon', 40), row('Tue', 70), row('Wed', 55), row('Thu', 90)] }
+    case 'queue':
+      return {
+        rowLimit: 6,
+        seedRows: [
+          row('Case #4821 — ID document review', undefined, 'pending'),
+          row('Case #4822 — address mismatch', undefined, 'pending'),
+        ],
+      }
+    case 'transactions':
+      return {
+        rowLimit: 6,
+        seedRows: [
+          row('Whole Foods', -84.12),
+          row('Rent — August', -1850),
+          row('Payroll', 2150),
+          row('Blue Bottle', -6.4),
+          row('Lyft', -18.25),
+        ],
+      }
     case 'stripe':
+      return {
+        rowLimit: 6,
+        seedRows: [
+          row('ch_3OkT2b — Acme Inc (Pro plan)', 149),
+          row('ch_3OkT9x — Globex (Starter)', 29),
+          row('ch_3OkUc4 — Initech (Pro plan)', 149),
+          row('Payout → bank •••6841', -1320),
+        ],
+      }
     case 'sheets':
-      return { rowLimit: 6 }
+      return {
+        rowLimit: 6,
+        seedRows: [
+          row('Invoice — Staples office supplies', -212.4),
+          row('Invoice — AWS July', -1840.22),
+          row('Invoice — Figma seats', -144),
+        ],
+      }
     case 'postgres':
-      return { rowLimit: 6, sql: 'SELECT * FROM signups ORDER BY created_at DESC;' }
+      return {
+        rowLimit: 6,
+        sql: 'SELECT * FROM signups ORDER BY created_at DESC;',
+        seedRows: [
+          row('jane@acme.com — signup (verified)', undefined, 'approved'),
+          row('omar@globex.io — signup (pending)', undefined, 'pending'),
+          row('lin@initech.dev — signup (verified)', undefined, 'approved'),
+          row('sam@umbrella.co — signup (rejected)', undefined, 'rejected'),
+        ],
+      }
     case 'text':
       return { text: 'Double-click to edit this note.' }
     case 'kpi':
@@ -155,7 +228,13 @@ export function defaultConfig(type: BlockType): BlockConfig {
     case 'input':
       return { placeholder: '⌕ Filter linked blocks…' }
     case 'button':
-      return { submitLabel: 'Run' }
+      return { submitLabel: 'Run', emitTitle: '' }
+    case 'customer':
+      return { customerName: 'Jane Doe', customerEmail: 'jane@acme.com', kycStatus: 'pending' }
+    case 'card':
+      return { cardNumber: '•••• 4242', cardExpiry: '09/29' }
+    case 'linkbank':
+      return { bankName: 'Chase •••6841' }
     case 'flags':
       return { flags: ['new-onboarding', 'instant-transfers'] }
     case 'slack':

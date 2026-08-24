@@ -34,6 +34,41 @@ function BlockPreview({ block }: { block: Block }) {
     )
   }
 
+  const rows = config.seedRows ?? []
+
+  if (type === 'queue') {
+    return (
+      <div className="preview preview-queue">
+        {rows.length === 0 && <div className="case">Empty queue</div>}
+        {rows.slice(0, 3).map((r) => (
+          <div key={r.id} className="case">
+            <span>{r.title}</span>
+            <span className="actions">
+              <span className="approve">✓</span>
+              <span className="reject">✕</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (type === 'transactions') {
+    return (
+      <div className="preview preview-transactions">
+        {rows.length === 0 && <div className="txn">No transactions</div>}
+        {rows.slice(0, 3).map((r) => (
+          <div key={r.id} className="txn">
+            <span>{r.title}</span>
+            <span className={(r.amount ?? 0) >= 0 ? 'credit' : 'debit'}>
+              {r.amount === undefined ? '' : `${r.amount < 0 ? '−' : '+'}$${Math.abs(r.amount).toFixed(2)}`}
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   if (type === 'flags') {
     return (
       <div className="preview preview-flags">
@@ -93,12 +128,7 @@ function BlockPreview({ block }: { block: Block }) {
         </div>
       )
     case 'text':
-      return (
-        <div className="preview preview-text">
-          <div className="line wide" />
-          <div className="line" />
-        </div>
-      )
+      return <div className="preview preview-text">{config.text || 'Empty note'}</div>
     case 'balance':
       return (
         <div className="preview preview-balance">
@@ -107,30 +137,13 @@ function BlockPreview({ block }: { block: Block }) {
           <span className="delta">▲ $210 this week</span>
         </div>
       )
-    case 'transactions':
-      return (
-        <div className="preview preview-transactions">
-          <div className="txn">
-            <span>Blue Bottle</span>
-            <span className="debit">−$6.40</span>
-          </div>
-          <div className="txn">
-            <span>Payroll</span>
-            <span className="credit">+$2,150.00</span>
-          </div>
-          <div className="txn">
-            <span>Lyft</span>
-            <span className="debit">−$18.25</span>
-          </div>
-        </div>
-      )
     case 'card':
       return (
         <div className="preview preview-card">
           <div className="chip" />
-          <div className="number">•••• 4242</div>
+          <div className="number">{config.cardNumber || '•••• 4242'}</div>
           <div className="meta">
-            <span>EXP 09/29</span>
+            <span>EXP {config.cardExpiry || '09/29'}</span>
             <span className="freeze">Freeze</span>
           </div>
         </div>
@@ -138,7 +151,7 @@ function BlockPreview({ block }: { block: Block }) {
     case 'linkbank':
       return (
         <div className="preview preview-linkbank">
-          <div className="bank">🏦 Chase •••6841</div>
+          <div className="bank">🏦 {config.bankName || 'Chase •••6841'}</div>
           <div className="connect">+ Link account</div>
         </div>
       )
@@ -146,31 +159,15 @@ function BlockPreview({ block }: { block: Block }) {
       return (
         <div className="preview preview-customer">
           <div className="who">
-            <span className="avatar">JD</span>
+            <span className="avatar">{(config.customerName || 'Jane Doe').slice(0, 2).toUpperCase()}</span>
             <span>
-              <span className="name">Jane Doe</span>
-              <span className="email">jane@acme.com</span>
+              <span className="name">{config.customerName || 'Jane Doe'}</span>
+              <span className="email">{config.customerEmail || ''}</span>
             </span>
           </div>
-          <div className="kyc">KYC: Verified</div>
-        </div>
-      )
-    case 'queue':
-      return (
-        <div className="preview preview-queue">
-          <div className="case">
-            <span>Case #4821</span>
-            <span className="actions">
-              <span className="approve">✓</span>
-              <span className="reject">✕</span>
-            </span>
-          </div>
-          <div className="case">
-            <span>Case #4822</span>
-            <span className="actions">
-              <span className="approve">✓</span>
-              <span className="reject">✕</span>
-            </span>
+          <div className="kyc">
+            KYC:{' '}
+            {config.kycStatus === 'approved' ? 'Verified' : config.kycStatus === 'rejected' ? 'Rejected' : 'Pending'}
           </div>
         </div>
       )

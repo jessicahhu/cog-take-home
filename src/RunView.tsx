@@ -47,42 +47,16 @@ const newRecId = () => `rec-${Date.now()}-${recId++}`
 function seedData(blocks: Block[]): DataMap {
   const data: DataMap = {}
   for (const block of blocks) {
-    if (block.type === 'queue') {
-      data[block.id] = [
-        { id: newRecId(), at: Date.now() - 3600_000, source: block.label, title: 'Case #4821 — ID document review', status: 'pending' },
-        { id: newRecId(), at: Date.now() - 1800_000, source: block.label, title: 'Case #4822 — address mismatch', status: 'pending' },
-      ]
-    } else if (block.type === 'transactions') {
-      data[block.id] = [
-        { id: newRecId(), at: Date.now() - 86_400_000, source: block.label, title: 'Whole Foods', amount: -84.12 },
-        { id: newRecId(), at: Date.now() - 43_200_000, source: block.label, title: 'Rent — August', amount: -1850 },
-        { id: newRecId(), at: Date.now() - 7200_000, source: block.label, title: 'Payroll', amount: 2150 },
-        { id: newRecId(), at: Date.now() - 5400_000, source: block.label, title: 'Blue Bottle', amount: -6.4 },
-        { id: newRecId(), at: Date.now() - 3600_000, source: block.label, title: 'Lyft', amount: -18.25 },
-      ]
-    } else if (block.type === 'stripe') {
-      data[block.id] = [
-        { id: newRecId(), at: Date.now() - 10_800_000, source: block.label, title: 'ch_3OkT2b — Acme Inc (Pro plan)', amount: 149 },
-        { id: newRecId(), at: Date.now() - 9000_000, source: block.label, title: 'ch_3OkT9x — Globex (Starter)', amount: 29 },
-        { id: newRecId(), at: Date.now() - 5400_000, source: block.label, title: 'ch_3OkUc4 — Initech (Pro plan)', amount: 149 },
-        { id: newRecId(), at: Date.now() - 3600_000, source: block.label, title: 'Payout → bank •••6841', amount: -1320 },
-      ]
-    } else if (block.type === 'postgres') {
-      data[block.id] = [
-        { id: newRecId(), at: Date.now() - 259_200_000, source: block.label, title: 'jane@acme.com — signup (verified)', status: 'approved' },
-        { id: newRecId(), at: Date.now() - 172_800_000, source: block.label, title: 'omar@globex.io — signup (pending)', status: 'pending' },
-        { id: newRecId(), at: Date.now() - 86_400_000, source: block.label, title: 'lin@initech.dev — signup (verified)', status: 'approved' },
-        { id: newRecId(), at: Date.now() - 43_200_000, source: block.label, title: 'sam@umbrella.co — signup (rejected)', status: 'rejected' },
-      ]
-    } else if (block.type === 'sheets') {
-      data[block.id] = [
-        { id: newRecId(), at: Date.now() - 172_800_000, source: block.label, title: 'Invoice — Staples office supplies', amount: -212.4 },
-        { id: newRecId(), at: Date.now() - 86_400_000, source: block.label, title: 'Invoice — AWS July', amount: -1840.22 },
-        { id: newRecId(), at: Date.now() - 43_200_000, source: block.label, title: 'Invoice — Figma seats', amount: -144 },
-      ]
-    } else {
-      data[block.id] = []
-    }
+    const rows = configOf(block).seedRows ?? []
+    const spacing = 3600_000
+    data[block.id] = rows.map((r, i) => ({
+      id: newRecId(),
+      at: Date.now() - (rows.length - i) * spacing,
+      source: block.label,
+      title: r.title,
+      ...(r.amount === undefined ? {} : { amount: r.amount }),
+      ...(r.status === undefined ? {} : { status: r.status }),
+    }))
   }
   return data
 }
@@ -369,7 +343,7 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
         linkedBank={linked[block.id] ?? false}
         onLinkBank={() => {
           setLinked((prev) => ({ ...prev, [block.id]: true }))
-          emit(block.id, { title: 'Linked bank account Chase •••6841' })
+          emit(block.id, { title: `Linked bank account ${configOf(block).bankName || 'Chase •••6841'}` })
         }}
         flags={flagState[block.id] ?? defaultFlags(block)}
         onFlag={(flag, on) => {
@@ -471,7 +445,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
         </div>
       )
     case 'chart': {
-      const amounts = dataset.filter((r) => r.amount !== undefined).slice(-8)
+      const amounts = dataset.filter((r) => r.amount !== undefined).slice(-limit)
       const values = amounts.length > 0 ? amounts.map((r) => Math.abs(r.amount!)) : [40, 70, 55, 90]
       const max = Math.max(...values)
       return (
@@ -496,7 +470,10 @@ function RuntimeBody(props: RuntimeBlockProps) {
     case 'button':
       return (
         <div className="preview preview-button">
-          <button className="run-action-btn" onClick={() => props.emit({ title: `${block.label} triggered` })}>
+          <button
+            className="run-action-btn"
+            onClick={() => props.emit({ title: config.emitTitle || `${block.label} triggered` })}
+          >
             {config.submitLabel || 'Run'}
           </button>
         </div>
@@ -543,9 +520,9 @@ function RuntimeBody(props: RuntimeBlockProps) {
       return (
         <div className={`preview preview-card${props.frozen ? ' frozen' : ''}`}>
           <div className="chip" />
-          <div className="number">{props.frozen ? '•••• ····' : '•••• 4242'}</div>
+          <div className="number">{props.frozen ? '•••• ····' : (config.cardNumber ?? '•••• 4242')}</div>
           <div className="meta">
-            <span>EXP 09/29</span>
+            <span>EXP {config.cardExpiry ?? '09/29'}</span>
             <button className="run-freeze" onClick={() => props.onFreeze(!props.frozen)}>
               {props.frozen ? 'Unfreeze' : 'Freeze'}
             </button>
@@ -556,7 +533,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
       return (
         <div className="run-linkbank">
           {props.linkedBank ? (
-            <div className="bank">🏦 Chase •••6841 — connected</div>
+            <div className="bank">🏦 {config.bankName || 'Chase •••6841'} — connected</div>
           ) : (
             <button className="run-connect" onClick={props.onLinkBank}>
               + Link account
@@ -566,17 +543,19 @@ function RuntimeBody(props: RuntimeBlockProps) {
       )
     case 'customer': {
       const latest = dataset[dataset.length - 1]
+      const name = latest ? latest.title : (config.customerName ?? 'Jane Doe')
+      const status = latest?.status ?? config.kycStatus ?? 'pending'
       return (
         <div className="preview preview-customer">
           <div className="who">
-            <span className="avatar">{latest ? latest.title.slice(0, 2).toUpperCase() : 'JD'}</span>
+            <span className="avatar">{name.slice(0, 2).toUpperCase()}</span>
             <span>
-              <span className="name">{latest ? latest.title : 'Jane Doe'}</span>
-              <span className="email">{latest ? `via ${latest.source}` : 'jane@acme.com'}</span>
+              <span className="name">{name}</span>
+              <span className="email">{latest ? `via ${latest.source}` : (config.customerEmail ?? '')}</span>
             </span>
           </div>
           <div className="kyc">
-            {latest?.status === 'approved' ? 'KYC: Verified' : latest?.status === 'rejected' ? 'KYC: Rejected' : 'KYC: Pending'}
+            {status === 'approved' ? 'KYC: Verified' : status === 'rejected' ? 'KYC: Rejected' : 'KYC: Pending'}
           </div>
         </div>
       )

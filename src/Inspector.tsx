@@ -1,4 +1,4 @@
-import type { Block, BlockConfig, ColumnKey, FieldType, FormField } from './types'
+import type { Block, BlockConfig, ColumnKey, FieldType, FormField, SeedRow } from './types'
 import { ALL_COLUMNS, COLUMN_LABELS, defaultConfig, newFieldId } from './types'
 
 interface Props {
@@ -14,6 +14,7 @@ const HAS_COLUMNS = new Set<Block['type']>(['table'])
 const HAS_ROW_LIMIT = new Set<Block['type']>([
   'table',
   'list',
+  'chart',
   'queue',
   'transactions',
   'audit',
@@ -25,6 +26,20 @@ const HAS_ROW_LIMIT = new Set<Block['type']>([
   'webhook',
 ])
 
+const HAS_SEED_ROWS = new Set<Block['type']>([
+  'table',
+  'list',
+  'chart',
+  'queue',
+  'transactions',
+  'audit',
+  'stripe',
+  'sheets',
+  'postgres',
+])
+
+const ROW_LIMIT_LABELS: Partial<Record<Block['type'], string>> = { chart: 'Bars shown' }
+
 export default function Inspector({ block, onChange, onClose }: Props) {
   const config: BlockConfig = { ...defaultConfig(block.type), ...block.config }
   const set = (patch: Partial<BlockConfig>) => onChange(block.id, { ...config, ...patch })
@@ -32,6 +47,10 @@ export default function Inspector({ block, onChange, onClose }: Props) {
   const fields = config.fields ?? []
   const setField = (id: string, patch: Partial<FormField>) =>
     set({ fields: fields.map((f) => (f.id === id ? { ...f, ...patch } : f)) })
+
+  const rows = config.seedRows ?? []
+  const setRow = (id: string, patch: Partial<SeedRow>) =>
+    set({ seedRows: rows.map((r) => (r.id === id ? { ...r, ...patch } : r)) })
 
   const columns = config.columns ?? []
   const toggleColumn = (key: ColumnKey) =>
@@ -140,6 +159,107 @@ export default function Inspector({ block, onChange, onClose }: Props) {
           </div>
         )}
 
+        {HAS_SEED_ROWS.has(block.type) && (
+          <div className="inspector-group">
+            <span className="inspector-label">Starting rows</span>
+            {rows.length === 0 && <p className="inspector-hint">Starts empty — rows arrive from linked blocks.</p>}
+            {rows.map((r, i) => (
+              <div key={r.id} className="inspector-field">
+                <div className="inspector-field-row">
+                  <input
+                    value={r.title}
+                    onChange={(e) => setRow(r.id, { title: e.target.value })}
+                    placeholder="Row label"
+                    aria-label={`Row ${i + 1} title`}
+                  />
+                  <button
+                    className="inspector-icon"
+                    onClick={() => set({ seedRows: rows.filter((x) => x.id !== r.id) })}
+                    title="Remove row"
+                    aria-label={`Remove row ${r.title}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="inspector-field-row">
+                  <input
+                    className="inspector-amount"
+                    value={r.amount ?? ''}
+                    onChange={(e) =>
+                      setRow(r.id, { amount: e.target.value === '' ? undefined : Number(e.target.value) })
+                    }
+                    inputMode="decimal"
+                    placeholder="Amount"
+                    aria-label={`Row ${i + 1} amount`}
+                  />
+                  <select
+                    value={r.status ?? ''}
+                    onChange={(e) =>
+                      setRow(r.id, { status: e.target.value === '' ? undefined : (e.target.value as SeedRow['status']) })
+                    }
+                    aria-label={`Row ${i + 1} status`}
+                  >
+                    <option value="">no status</option>
+                    <option value="pending">pending</option>
+                    <option value="approved">approved</option>
+                    <option value="rejected">rejected</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+            <button
+              className="inspector-add"
+              onClick={() => set({ seedRows: [...rows, { id: newFieldId(), title: `Row ${rows.length + 1}` }] })}
+            >
+              + Add row
+            </button>
+          </div>
+        )}
+
+        {block.type === 'customer' && (
+          <div className="inspector-group">
+            <label className="inspector-row">
+              <span>Name</span>
+              <input value={config.customerName ?? ''} onChange={(e) => set({ customerName: e.target.value })} />
+            </label>
+            <label className="inspector-row">
+              <span>Email</span>
+              <input value={config.customerEmail ?? ''} onChange={(e) => set({ customerEmail: e.target.value })} />
+            </label>
+            <label className="inspector-row">
+              <span>KYC status</span>
+              <select
+                value={config.kycStatus ?? 'pending'}
+                onChange={(e) => set({ kycStatus: e.target.value as SeedRow['status'] })}
+              >
+                <option value="pending">Pending</option>
+                <option value="approved">Verified</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </label>
+          </div>
+        )}
+
+        {block.type === 'card' && (
+          <div className="inspector-group">
+            <label className="inspector-row">
+              <span>Card number</span>
+              <input value={config.cardNumber ?? ''} onChange={(e) => set({ cardNumber: e.target.value })} />
+            </label>
+            <label className="inspector-row">
+              <span>Expiry</span>
+              <input value={config.cardExpiry ?? ''} onChange={(e) => set({ cardExpiry: e.target.value })} />
+            </label>
+          </div>
+        )}
+
+        {block.type === 'linkbank' && (
+          <label className="inspector-row">
+            <span>Bank</span>
+            <input value={config.bankName ?? ''} onChange={(e) => set({ bankName: e.target.value })} />
+          </label>
+        )}
+
         {block.type === 'kpi' && (
           <div className="inspector-group">
             <label className="inspector-row">
@@ -193,10 +313,20 @@ export default function Inspector({ block, onChange, onClose }: Props) {
         )}
 
         {block.type === 'button' && (
-          <label className="inspector-row">
-            <span>Button text</span>
-            <input value={config.submitLabel ?? ''} onChange={(e) => set({ submitLabel: e.target.value })} />
-          </label>
+          <div className="inspector-group">
+            <label className="inspector-row">
+              <span>Button text</span>
+              <input value={config.submitLabel ?? ''} onChange={(e) => set({ submitLabel: e.target.value })} />
+            </label>
+            <label className="inspector-row">
+              <span>Emits</span>
+              <input
+                value={config.emitTitle ?? ''}
+                onChange={(e) => set({ emitTitle: e.target.value })}
+                placeholder={`${block.label} triggered`}
+              />
+            </label>
+          </div>
         )}
 
         {block.type === 'flags' && (
@@ -259,7 +389,7 @@ export default function Inspector({ block, onChange, onClose }: Props) {
 
         {HAS_ROW_LIMIT.has(block.type) && (
           <label className="inspector-row">
-            <span>Rows shown</span>
+            <span>{ROW_LIMIT_LABELS[block.type] ?? 'Rows shown'}</span>
             <input
               type="number"
               min={1}
