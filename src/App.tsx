@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { answerQuestion } from './answers'
 import BlockCard from './BlockCard'
 import Inspector from './Inspector'
 import RunView from './RunView'
@@ -286,6 +287,18 @@ export default function App() {
     const text = prompt.trim()
     if (!text) return
     setPrompt('')
+    const answer = answerQuestion(text)
+    if (answer) {
+      const question: ChatMessage = { id: newId(), role: 'user', text }
+      const thinking: ChatMessage = { id: newId(), role: 'devin', text: 'Thinking…', pending: true }
+      setMessages((prev) => [...prev, question, thinking])
+      window.setTimeout(() => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === thinking.id ? { ...m, pending: false, text: answer } : m)),
+        )
+      }, 500)
+      return
+    }
     const types = blocksFromPrompt(text)
     const userMsg: ChatMessage = { id: newId(), role: 'user', text }
     const pendingMsg: ChatMessage = {
@@ -809,7 +822,7 @@ export default function App() {
             <span className="chat-avatar">◆</span>
             <span>
               <span className="chat-title">Devin</span>
-              <span className="chat-sub">describe features to build</span>
+              <span className="chat-sub">build features or ask how things work</span>
             </span>
           </div>
           <div className="chat-messages">
