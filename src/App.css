@@ -1165,34 +1165,72 @@ body {
   color: #fbbf24;
 }
 
-.run-canvas {
-  position: relative;
+.run-page {
   flex: 1;
   overflow: auto;
   background: var(--bg);
 }
 
-.run-block {
-  position: absolute;
-  width: 220px;
+.run-page-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 32px 48px;
+}
+
+.run-page-title {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.run-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.run-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.run-columns.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.run-main,
+.run-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.run-section {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(20, 24, 40, 0.08);
+  box-shadow: 0 1px 4px rgba(20, 24, 40, 0.06);
+  overflow: hidden;
 }
 
-.run-block-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
+.run-section-title {
+  margin: 0;
+  padding: 14px 16px 10px;
+  font-size: 14px;
   font-weight: 600;
 }
 
-.run-block-body {
+.run-section-body {
   min-height: 40px;
+}
+
+.run-stat .run-section-body {
+  min-height: 0;
 }
 
 .run-empty {
@@ -1501,4 +1539,136 @@ body {
   min-width: 24px;
   font-weight: 600;
   color: var(--text);
+}
+
+/* ---------- run mode: clean app styling ---------- */
+.run-section .preview {
+  padding: 16px;
+}
+
+.run-stat .preview-kpi {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.preview-kpi .caption {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.run-stat .preview-kpi .big {
+  font-size: 28px;
+}
+
+.run-stat .preview-balance .amount {
+  font-size: 28px;
+}
+
+.run-section .run-form {
+  padding: 4px 16px 16px;
+  gap: 12px;
+}
+
+.run-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.run-field span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.run-section .run-form input {
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.run-section .run-form button {
+  font-size: 13px;
+  padding: 9px 0;
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
+.run-section .run-table {
+  padding: 4px 16px 14px;
+}
+
+.run-section .run-table table {
+  font-size: 12.5px;
+}
+
+.run-section .run-table th,
+.run-section .run-table td {
+  padding: 7px 8px;
+}
+
+.run-section .run-list {
+  padding: 4px 16px 12px;
+}
+
+.run-section .run-list-item {
+  font-size: 12.5px;
+  padding: 7px 0;
+}
+
+.run-section .run-queue {
+  padding: 4px 16px 12px;
+}
+
+.run-section .run-case {
+  font-size: 12.5px;
+}
+
+.run-section .run-flags {
+  padding: 4px 16px 12px;
+}
+
+.run-section .run-flags .flag {
+  font-size: 12.5px;
+  padding: 7px 0;
+}
+
+.run-section .run-audit {
+  padding: 4px 16px 14px;
+}
+
+.run-section .run-audit .entry {
+  font-size: 12px;
+  padding: 5px 0;
+}
+
+.run-section .run-input {
+  padding: 4px 16px 14px;
+}
+
+.run-section .run-input input {
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.run-section .run-linkbank {
+  padding: 4px 16px 14px;
+}
+
+.run-section .run-empty {
+  padding: 4px 16px 16px;
+  font-size: 12.5px;
+}
+
+.run-section-chart .preview-chart {
+  height: 140px;
+}
+
+.run-side .run-section-chart .preview-chart {
+  height: 80px;
+}
+
+.run-section .preview-card {
+  margin: 4px 16px 16px;
 }

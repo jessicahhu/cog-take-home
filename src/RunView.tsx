@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BackendConfig, Block, Link, Page } from './types'
-import { BLOCK_IO, PALETTE } from './types'
+import { BLOCK_IO } from './types'
 
 export interface RuntimeRecord {
   id: string
@@ -185,6 +185,28 @@ export default function RunView({ toolName, blocks, links, pages, backend, onExi
 
   const pageBlocks = blocks.filter((b) => b.pageId === activePage)
 
+  // Arrange blocks into a clean app layout instead of whiteboard positions:
+  // small stat cards up top, data views in the main column, actions in a sidebar.
+  const byPosition = (a: Block, b: Block) => a.y - b.y || a.x - b.x
+  const statBlocks = pageBlocks.filter((b) => b.type === 'kpi' || b.type === 'balance').sort(byPosition)
+  const SIDE_TYPES = new Set<Block['type']>([
+    'form',
+    'payment',
+    'refund',
+    'input',
+    'button',
+    'linkbank',
+    'card',
+    'flags',
+    'customer',
+    'text',
+  ])
+  const sideBlocks = pageBlocks.filter((b) => SIDE_TYPES.has(b.type)).sort(byPosition)
+  const mainBlocks = pageBlocks
+    .filter((b) => b.type !== 'kpi' && b.type !== 'balance' && !SIDE_TYPES.has(b.type))
+    .sort(byPosition)
+  const activePageName = pages.find((p) => p.id === activePage)?.name ?? ''
+
   return (
     <div className="run-view">
       <header className="run-topbar">
@@ -218,48 +240,70 @@ export default function RunView({ toolName, blocks, links, pages, backend, onExi
           </button>
         </div>
       </header>
-      <main className="run-canvas">
-        {pageBlocks.length === 0 && (
+      <main className="run-page">
+        {pageBlocks.length === 0 ? (
           <div className="empty-state">
             <p className="empty-title">This page is empty</p>
             <p>Exit to the builder to add blocks to it.</p>
           </div>
+        ) : (
+          <div className="run-page-inner">
+            <h1 className="run-page-title">{activePageName}</h1>
+            {statBlocks.length > 0 && (
+              <div className="run-stats">
+                {statBlocks.map((block) => renderRuntimeBlock(block))}
+              </div>
+            )}
+            <div
+              className={`run-columns${mainBlocks.length === 0 || sideBlocks.length === 0 ? ' single' : ''}`}
+            >
+              {mainBlocks.length > 0 && (
+                <div className="run-main">{mainBlocks.map((block) => renderRuntimeBlock(block))}</div>
+              )}
+              {sideBlocks.length > 0 && (
+                <div className="run-side">{sideBlocks.map((block) => renderRuntimeBlock(block))}</div>
+              )}
+            </div>
+          </div>
         )}
-        {pageBlocks.map((block) => (
-          <RuntimeBlock
-            key={block.id}
-            block={block}
-            dataset={datasetFor(block.id)}
-            query={queryFor(block.id)}
-            queryValue={queries[block.id] ?? ''}
-            onQuery={(v) => setQueries((prev) => ({ ...prev, [block.id]: v }))}
-            text={texts[block.id] ?? 'Double-click to edit this note.'}
-            onText={(v) => setTexts((prev) => ({ ...prev, [block.id]: v }))}
-            frozen={frozen[block.id] ?? false}
-            onFreeze={(v) => {
-              setFrozen((prev) => ({ ...prev, [block.id]: v }))
-              emit(block.id, { title: v ? 'Card frozen' : 'Card unfrozen' })
-            }}
-            linkedBank={linked[block.id] ?? false}
-            onLinkBank={() => {
-              setLinked((prev) => ({ ...prev, [block.id]: true }))
-              emit(block.id, { title: 'Linked bank account Chase •••6841' })
-            }}
-            flags={flagState[block.id] ?? { 'new-onboarding': true, 'instant-transfers': false }}
-            onFlag={(flag, on) => {
-              setFlagState((prev) => ({
-                ...prev,
-                [block.id]: { ...(prev[block.id] ?? { 'new-onboarding': true, 'instant-transfers': false }), [flag]: on },
-              }))
-              emit(block.id, { title: `${flag} → ${on ? 'on' : 'off'}` })
-            }}
-            emit={(record) => emit(block.id, record)}
-            setStatus={setStatus}
-          />
-        ))}
       </main>
     </div>
   )
+
+  function renderRuntimeBlock(block: Block) {
+    return (
+      <RuntimeBlock
+        key={block.id}
+        block={block}
+        dataset={datasetFor(block.id)}
+        query={queryFor(block.id)}
+        queryValue={queries[block.id] ?? ''}
+        onQuery={(v) => setQueries((prev) => ({ ...prev, [block.id]: v }))}
+        text={texts[block.id] ?? 'Double-click to edit this note.'}
+        onText={(v) => setTexts((prev) => ({ ...prev, [block.id]: v }))}
+        frozen={frozen[block.id] ?? false}
+        onFreeze={(v) => {
+          setFrozen((prev) => ({ ...prev, [block.id]: v }))
+          emit(block.id, { title: v ? 'Card frozen' : 'Card unfrozen' })
+        }}
+        linkedBank={linked[block.id] ?? false}
+        onLinkBank={() => {
+          setLinked((prev) => ({ ...prev, [block.id]: true }))
+          emit(block.id, { title: 'Linked bank account Chase •••6841' })
+        }}
+        flags={flagState[block.id] ?? { 'new-onboarding': true, 'instant-transfers': false }}
+        onFlag={(flag, on) => {
+          setFlagState((prev) => ({
+            ...prev,
+            [block.id]: { ...(prev[block.id] ?? { 'new-onboarding': true, 'instant-transfers': false }), [flag]: on },
+          }))
+          emit(block.id, { title: `${flag} → ${on ? 'on' : 'off'}` })
+        }}
+        emit={(record) => emit(block.id, record)}
+        setStatus={setStatus}
+      />
+    )
+  }
 }
 
 interface RuntimeBlockProps {
@@ -282,17 +326,14 @@ interface RuntimeBlockProps {
 
 function RuntimeBlock(props: RuntimeBlockProps) {
   const { block } = props
-  const icon = PALETTE.find((p) => p.type === block.type)?.icon ?? '▦'
+  const isStat = block.type === 'kpi' || block.type === 'balance'
   return (
-    <div className="run-block" style={{ left: block.x, top: block.y }}>
-      <div className="run-block-header">
-        <span className="block-icon">{icon}</span>
-        <span className="run-block-title">{block.label}</span>
-      </div>
-      <div className="run-block-body">
+    <section className={`run-section run-section-${block.type}${isStat ? ' run-stat' : ''}`}>
+      {!isStat && <h2 className="run-section-title">{block.label}</h2>}
+      <div className="run-section-body">
         <RuntimeBody {...props} />
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -360,6 +401,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
     case 'kpi':
       return (
         <div className="preview preview-kpi">
+          <span className="caption">{block.label}</span>
           <span className="big">{dataset.length.toLocaleString()}</span>
           <span className="delta">records</span>
         </div>
@@ -390,7 +432,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
       const total = 2500 + dataset.reduce((sum, r) => sum + (r.amount ?? 0), 0)
       return (
         <div className="preview preview-balance">
-          <span className="caption">Available balance</span>
+          <span className="caption">{block.label}</span>
           <span className="amount">{money(total)}</span>
           <span className="delta">{dataset.length} linked movement{dataset.length === 1 ? '' : 's'}</span>
         </div>
@@ -522,8 +564,14 @@ function RunForm({ emit }: { emit: RuntimeBlockProps['emit'] }) {
         setAmount('')
       }}
     >
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount (optional)" inputMode="decimal" />
+      <label className="run-field">
+        <span>Title</span>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. New case" />
+      </label>
+      <label className="run-field">
+        <span>Amount (optional)</span>
+        <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" inputMode="decimal" />
+      </label>
       <button type="submit" disabled={!title.trim()}>
         Submit
       </button>
@@ -547,8 +595,14 @@ function RunPayment({ emit }: { emit: RuntimeBlockProps['emit'] }) {
         setAmount('')
       }}
     >
-      <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="To: @recipient" />
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="$ 0.00" inputMode="decimal" />
+      <label className="run-field">
+        <span>Recipient</span>
+        <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="@recipient" />
+      </label>
+      <label className="run-field">
+        <span>Amount</span>
+        <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="$ 0.00" inputMode="decimal" />
+      </label>
       <button type="submit" disabled={!valid}>
         Send
       </button>
@@ -572,8 +626,14 @@ function RunRefund({ emit }: { emit: RuntimeBlockProps['emit'] }) {
         setReason('')
       }}
     >
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="$ 0.00" inputMode="decimal" />
-      <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason" />
+      <label className="run-field">
+        <span>Amount</span>
+        <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="$ 0.00" inputMode="decimal" />
+      </label>
+      <label className="run-field">
+        <span>Reason</span>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason" />
+      </label>
       <button type="submit" className="danger" disabled={!valid}>
         Issue refund
       </button>
