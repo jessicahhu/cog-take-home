@@ -229,6 +229,8 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
   }
 
   const pageBlocks = blocks.filter((b) => b.pageId === shownPage && canSee(b.role))
+  const canSeeData = (block: Block) =>
+    canSee(configOf(block).dataRole ?? (auth.adminOnlyData === false ? 'everyone' : 'admin'))
 
   // Arrange blocks into a clean app layout instead of whiteboard positions:
   // small stat cards up top, data views in the main column, actions in a sidebar.
@@ -355,6 +357,7 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
         }}
         emit={(record) => emit(block.id, record)}
         setStatus={setStatus}
+        dataHidden={!canSeeData(block)}
       />
     )
   }
@@ -376,7 +379,24 @@ interface RuntimeBlockProps {
   onFlag: (flag: string, on: boolean) => void
   emit: (record: Omit<RuntimeRecord, 'id' | 'at' | 'source'>) => void
   setStatus: (recordId: string, status: 'approved' | 'rejected') => void
+  dataHidden: boolean
 }
+
+/** Blocks that show individual submitted records, and so honour `dataRole` / "admins only". */
+export const RECORD_VIEW_TYPES = new Set<Block['type']>([
+  'table',
+  'list',
+  'queue',
+  'transactions',
+  'audit',
+  'customer',
+  'stripe',
+  'sheets',
+  'postgres',
+  'slack',
+  'email',
+  'webhook',
+])
 
 function RuntimeBlock(props: RuntimeBlockProps) {
   const { block } = props
@@ -395,6 +415,11 @@ function RuntimeBody(props: RuntimeBlockProps) {
   const { block, dataset, query } = props
   const config = configOf(block)
   const limit = config.rowLimit ?? 6
+
+  if (props.dataHidden && RECORD_VIEW_TYPES.has(block.type)) {
+    return <p className="run-locked">🔒 Records here are visible to admins only.</p>
+  }
+
   const filtered = query
     ? dataset.filter((r) => `${r.title} ${r.details ?? ''}`.toLowerCase().includes(query))
     : dataset

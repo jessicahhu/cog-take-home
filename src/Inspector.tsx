@@ -1,5 +1,35 @@
-import type { Block, BlockConfig, ColumnKey, FieldType, FormField, SeedRow } from './types'
+import { useState } from 'react'
+import type { Block, BlockConfig, ColumnKey, FieldType, FormField, Role, SeedRow } from './types'
 import { ALL_COLUMNS, COLUMN_LABELS, defaultConfig, newFieldId } from './types'
+import { RECORD_VIEW_TYPES } from './RunView'
+
+/** Numbers are edited as free text so intermediate states like "-" or "12." survive typing. */
+function AmountInput({
+  value,
+  onChange,
+  label,
+}: {
+  value: number | undefined
+  onChange: (v: number | undefined) => void
+  label: string
+}) {
+  const [text, setText] = useState(value === undefined ? '' : String(value))
+  return (
+    <input
+      className="inspector-amount"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value)
+        const trimmed = e.target.value.trim()
+        const parsed = Number(trimmed)
+        onChange(trimmed === '' || Number.isNaN(parsed) ? undefined : parsed)
+      }}
+      inputMode="decimal"
+      placeholder="Amount"
+      aria-label={label}
+    />
+  )
+}
 
 interface Props {
   block: Block
@@ -159,6 +189,23 @@ export default function Inspector({ block, onChange, onClose }: Props) {
           </div>
         )}
 
+        {RECORD_VIEW_TYPES.has(block.type) && (
+          <label className="inspector-row">
+            <span>Who sees records</span>
+            <select
+              value={config.dataRole ?? 'inherit'}
+              onChange={(e) =>
+                set({ dataRole: e.target.value === 'inherit' ? undefined : (e.target.value as Role) })
+              }
+            >
+              <option value="inherit">Follow Access setting</option>
+              <option value="everyone">Everyone signed in</option>
+              <option value="ops">Ops+</option>
+              <option value="admin">Admin only</option>
+            </select>
+          </label>
+        )}
+
         {HAS_SEED_ROWS.has(block.type) && (
           <div className="inspector-group">
             <span className="inspector-label">Starting rows</span>
@@ -182,15 +229,11 @@ export default function Inspector({ block, onChange, onClose }: Props) {
                   </button>
                 </div>
                 <div className="inspector-field-row">
-                  <input
-                    className="inspector-amount"
-                    value={r.amount ?? ''}
-                    onChange={(e) =>
-                      setRow(r.id, { amount: e.target.value === '' ? undefined : Number(e.target.value) })
-                    }
-                    inputMode="decimal"
-                    placeholder="Amount"
-                    aria-label={`Row ${i + 1} amount`}
+                  <AmountInput
+                    key={r.id}
+                    value={r.amount}
+                    onChange={(amount) => setRow(r.id, { amount })}
+                    label={`Row ${i + 1} amount`}
                   />
                   <select
                     value={r.status ?? ''}

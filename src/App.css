@@ -2207,3 +2207,13 @@ body {
   width: 80px;
   flex: 0 0 auto;
 }
+
+.run-locked {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  background: #fafbfc;
+}
