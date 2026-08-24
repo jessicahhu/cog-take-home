@@ -8,7 +8,7 @@ A whiteboard-style builder for internal tools. Drag executable feature blocks on
 - **Links (data flow)** — drag from a block's right-side output port ◉ to another block to wire them together (e.g. Form → Data Table, Payment → Balance, Review Queue → Audit Log); incompatible links are rejected with an explanation
 - **Compile & Run** — validates the block graph (broken or incompatible links are errors, unlinked sinks are warnings) and launches the tool in a runtime view where every block is live
 - **Sitemap** — structure a tool into multiple pages from the left panel; the runtime shows them as navigation tabs
-- **Configurable blocks** — select a block and the Inspector (top of the right panel) edits what it actually does: form fields (add/remove/rename, type, required, select options), submit labels, table columns, rows shown, KPI metric, starting balance, feature-flag names, Slack channel, email recipient, webhook URL, and SQL — all saved with the tool
+- **Configurable blocks** — every block type is editable: select it and the Inspector (top of the right panel) edits what it actually does — form fields (add/remove/rename, type, required, select options), submit and button labels, table columns, rows/bars shown, starting rows for queues/feeds/tables/connectors (title, amount, status), KPI metric, starting balance, note text, search placeholder, customer name/email/KYC, card number/expiry, bank name, feature-flag names, Slack channel, email recipient, webhook URL, and SQL — all saved with the tool
 - **Backend selector** — choose where runtime data lives: in-memory, browser storage (persists between runs), or an HTTPS endpoint you own — plain REST, AWS (API Gateway + Lambda), or Azure (Functions); see [Persisting data](#persisting-data)
 - **Fintech blocks** — balance card, transaction feed, payment form, virtual card, and bank-account linking
 - **Internal ops blocks** — building blocks drawn from real internal tools (KYC review queues, refunds dashboards, feature-flag admin panels): customer info, review queue, refund action, feature flags, and audit log
@@ -30,6 +30,13 @@ The endpoint must send CORS headers, or the browser blocks the call and the runt
 to in-memory data with an "API unreachable" banner. Ready-to-deploy samples live in
 [`examples/`](examples/README.md): a Lambda writing to DynamoDB and an Azure Function writing to
 Table Storage.
+
+## Editing blocks
+
+Select any block on the board and the Inspector appears above the Devin chat. Everything the
+block shows or emits at runtime comes from that config, including the rows a queue, transaction
+feed, chart or connector starts with — add, rename, re-price and re-status them, and the builder
+preview and the compiled tool both follow.
 
 ## Editing what a form collects
 
