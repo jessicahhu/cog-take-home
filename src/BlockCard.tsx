@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import type { Block } from './types'
-import { BLOCK_IO, PALETTE, ROLE_LABELS } from './types'
+import { BLOCK_IO, PALETTE, ROLE_LABELS, defaultConfig } from './types'
 
 interface Props {
   block: Block
@@ -14,7 +14,39 @@ interface Props {
   onStartLink: (id: string, e: React.PointerEvent) => void
 }
 
-function BlockPreview({ type }: { type: Block['type'] }) {
+function BlockPreview({ block }: { block: Block }) {
+  const type = block.type
+  const config = { ...defaultConfig(type), ...block.config }
+
+  if (type === 'form' || type === 'payment' || type === 'refund') {
+    const fields = config.fields ?? []
+    return (
+      <div className="preview preview-form">
+        {fields.length === 0 && <div className="field empty">No fields</div>}
+        {fields.slice(0, 4).map((f) => (
+          <div key={f.id} className="field named">
+            {f.label}
+            {f.required ? ' *' : ''}
+          </div>
+        ))}
+        <div className="submit">{config.submitLabel || 'Submit'}</div>
+      </div>
+    )
+  }
+
+  if (type === 'flags') {
+    return (
+      <div className="preview preview-flags">
+        {(config.flags ?? []).slice(0, 4).map((flag, i) => (
+          <div key={flag + i} className="flag">
+            <span>{flag}</span>
+            <span className={`toggle${i === 0 ? ' on' : ''}`} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   switch (type) {
     case 'table':
       return (
@@ -22,14 +54,6 @@ function BlockPreview({ type }: { type: Block['type'] }) {
           <div className="row header" />
           <div className="row" />
           <div className="row" />
-        </div>
-      )
-    case 'form':
-      return (
-        <div className="preview preview-form">
-          <div className="field" />
-          <div className="field" />
-          <div className="submit" />
         </div>
       )
     case 'chart':
@@ -100,14 +124,6 @@ function BlockPreview({ type }: { type: Block['type'] }) {
           </div>
         </div>
       )
-    case 'payment':
-      return (
-        <div className="preview preview-payment">
-          <div className="field">To: @recipient</div>
-          <div className="field">$ 0.00</div>
-          <div className="send">Send</div>
-        </div>
-      )
     case 'card':
       return (
         <div className="preview preview-card">
@@ -155,27 +171,6 @@ function BlockPreview({ type }: { type: Block['type'] }) {
               <span className="approve">✓</span>
               <span className="reject">✕</span>
             </span>
-          </div>
-        </div>
-      )
-    case 'refund':
-      return (
-        <div className="preview preview-refund">
-          <div className="field">$ 25.00</div>
-          <div className="field">Reason: duplicate charge</div>
-          <div className="issue">Issue refund</div>
-        </div>
-      )
-    case 'flags':
-      return (
-        <div className="preview preview-flags">
-          <div className="flag">
-            <span>new-onboarding</span>
-            <span className="toggle on" />
-          </div>
-          <div className="flag">
-            <span>instant-transfers</span>
-            <span className="toggle" />
           </div>
         </div>
       )
@@ -324,7 +319,7 @@ export default function BlockCard({
           Devin is building…
         </div>
       ) : (
-        <BlockPreview type={block.type} />
+        <BlockPreview block={block} />
       )}
     </div>
   )
