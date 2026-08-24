@@ -17,6 +17,40 @@ export type BlockType =
   | 'refund'
   | 'flags'
   | 'audit'
+  | 'stripe'
+  | 'postgres'
+  | 'sheets'
+  | 'slack'
+  | 'email'
+  | 'webhook'
+
+/** Minimum role required to see a page or block at runtime. */
+export type Role = 'everyone' | 'ops' | 'admin'
+
+export const ROLE_RANK: Record<Role, number> = { everyone: 0, ops: 1, admin: 2 }
+
+export const ROLE_LABELS: Record<Role, string> = {
+  everyone: 'Everyone',
+  ops: 'Ops+',
+  admin: 'Admin only',
+}
+
+export interface DemoUser {
+  username: string
+  password: string
+  role: Role
+}
+
+/** Demo directory used by the runtime sign-in screen when auth is enabled. */
+export const DEMO_USERS: DemoUser[] = [
+  { username: 'admin', password: 'admin', role: 'admin' },
+  { username: 'ops', password: 'ops', role: 'ops' },
+  { username: 'viewer', password: 'viewer', role: 'everyone' },
+]
+
+export interface AuthConfig {
+  required: boolean
+}
 
 export interface Block {
   id: string
@@ -25,6 +59,7 @@ export interface Block {
   x: number
   y: number
   pageId: string
+  role?: Role
   building?: boolean
 }
 
@@ -37,6 +72,7 @@ export interface Link {
 export interface Page {
   id: string
   name: string
+  role?: Role
 }
 
 export type BackendKind = 'memory' | 'browser' | 'rest'
@@ -74,6 +110,12 @@ export const BLOCK_IO: Record<BlockType, { emits: SignalKind | null; accepts: Si
   refund: { emits: 'records', accepts: [] },
   flags: { emits: 'event', accepts: [] },
   audit: { emits: null, accepts: ['records', 'event'] },
+  stripe: { emits: 'records', accepts: [] },
+  postgres: { emits: 'records', accepts: ['query'] },
+  sheets: { emits: 'records', accepts: [] },
+  slack: { emits: null, accepts: ['records', 'event'] },
+  email: { emits: null, accepts: ['records', 'event'] },
+  webhook: { emits: null, accepts: ['records', 'event'] },
 }
 
 export function canLink(from: BlockType, to: BlockType): boolean {
@@ -86,13 +128,14 @@ export interface PaletteItem {
   label: string
   icon: string
   description: string
-  section: 'general' | 'fintech' | 'ops'
+  section: 'general' | 'fintech' | 'ops' | 'connectors'
 }
 
 export const SECTION_TITLES: Record<PaletteItem['section'], string> = {
   general: 'Features',
   fintech: 'Fintech',
   ops: 'Internal Ops',
+  connectors: 'Connectors',
 }
 
 export const PALETTE: PaletteItem[] = [
@@ -114,6 +157,12 @@ export const PALETTE: PaletteItem[] = [
   { type: 'refund', label: 'Refund Action', icon: '↺', description: 'Issue a refund with reason', section: 'ops' },
   { type: 'flags', label: 'Feature Flags', icon: '⎇', description: 'Toggle flags per environment', section: 'ops' },
   { type: 'audit', label: 'Audit Log', icon: '≣', description: 'Who did what, and when', section: 'ops' },
+  { type: 'stripe', label: 'Stripe Payments', icon: '⚡', description: 'Charges and payouts from Stripe', section: 'connectors' },
+  { type: 'postgres', label: 'Postgres Query', icon: '⛁', description: 'Rows from a SQL database', section: 'connectors' },
+  { type: 'sheets', label: 'Google Sheet', icon: '▤', description: 'Rows synced from a spreadsheet', section: 'connectors' },
+  { type: 'slack', label: 'Slack Notify', icon: '⌗', description: 'Post linked activity to a channel', section: 'connectors' },
+  { type: 'email', label: 'Email Sender', icon: '✉', description: 'Send email for linked activity', section: 'connectors' },
+  { type: 'webhook', label: 'Webhook Out', icon: '↯', description: 'POST linked activity to any URL', section: 'connectors' },
 ]
 
 const KEYWORDS: Record<BlockType, string[]> = {
@@ -135,6 +184,12 @@ const KEYWORDS: Record<BlockType, string[]> = {
   refund: ['refund', 'chargeback', 'reimburse', 'dispute'],
   flags: ['flag', 'feature flag', 'toggle', 'rollout', 'experiment', 'kill switch'],
   audit: ['audit', 'compliance', 'trail', 'who did'],
+  stripe: ['stripe', 'charges', 'payout'],
+  postgres: ['postgres', 'sql', 'database', 'db query'],
+  sheets: ['sheet', 'spreadsheet', 'google sheet', 'csv'],
+  slack: ['slack', 'notify', 'notification', 'channel'],
+  email: ['email', 'mail', 'send email'],
+  webhook: ['webhook', 'callback', 'post to url'],
 }
 
 export interface SavedToolBlock {
@@ -144,6 +199,7 @@ export interface SavedToolBlock {
   y: number
   /** Index into the saved pages array. Absent in v1 exports (single page). */
   page?: number
+  role?: Role
 }
 
 export interface SavedToolLink {
@@ -160,11 +216,15 @@ export interface SavedTool {
   pages?: string[]
   links?: SavedToolLink[]
   backend?: BackendConfig
+  /** Parallel to `pages`: minimum role per page. Absent in older exports. */
+  pageRoles?: Role[]
+  auth?: AuthConfig
 }
 
 const STORAGE_KEY = 'toolboard-saved-tools'
 const VALID_TYPES = new Set<string>(PALETTE.map((p) => p.type))
 const BACKEND_KINDS = new Set<string>(['memory', 'browser', 'rest'])
+const ROLES = new Set<string>(['everyone', 'ops', 'admin'])
 
 function isSavedTool(value: unknown): value is SavedTool {
   if (typeof value !== 'object' || value === null) return false
@@ -186,7 +246,8 @@ function isSavedTool(value: unknown): value is SavedTool {
       typeof block.label === 'string' &&
       typeof block.x === 'number' &&
       typeof block.y === 'number' &&
-      (block.page === undefined || typeof block.page === 'number')
+      (block.page === undefined || typeof block.page === 'number') &&
+      (block.role === undefined || (typeof block.role === 'string' && ROLES.has(block.role)))
     )
   })
   if (!blocksOk) return false
@@ -209,6 +270,16 @@ function isSavedTool(value: unknown): value is SavedTool {
       )
     })
     if (!linksOk) return false
+  }
+  if (
+    tool.pageRoles !== undefined &&
+    !(Array.isArray(tool.pageRoles) && tool.pageRoles.every((r) => typeof r === 'string' && ROLES.has(r)))
+  ) {
+    return false
+  }
+  if (tool.auth !== undefined) {
+    const auth = tool.auth as Record<string, unknown>
+    if (typeof auth !== 'object' || auth === null || typeof auth.required !== 'boolean') return false
   }
   if (tool.backend !== undefined) {
     const backend = tool.backend as Record<string, unknown>
