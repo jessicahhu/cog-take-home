@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import type { Block } from './types'
-import { BLOCK_IO, PALETTE } from './types'
+import { BLOCK_IO, PALETTE, ROLE_LABELS } from './types'
 
 interface Props {
   block: Block
@@ -10,6 +10,7 @@ interface Props {
   onMove: (id: string, x: number, y: number) => void
   onDelete: (id: string) => void
   onRename: (id: string, label: string) => void
+  onCycleRole: (id: string) => void
   onStartLink: (id: string, e: React.PointerEvent) => void
 }
 
@@ -189,6 +190,56 @@ function BlockPreview({ type }: { type: Block['type'] }) {
           </div>
         </div>
       )
+    case 'stripe':
+      return (
+        <div className="preview preview-transactions">
+          <div className="txn">
+            <span>ch_3Ok… Acme Inc</span>
+            <span className="credit">+$149.00</span>
+          </div>
+          <div className="txn">
+            <span>Payout → bank</span>
+            <span className="debit">−$1,320.00</span>
+          </div>
+        </div>
+      )
+    case 'postgres':
+      return (
+        <div className="preview preview-connector">
+          <div className="conn-query">SELECT * FROM users…</div>
+          <div className="row" />
+          <div className="row" />
+        </div>
+      )
+    case 'sheets':
+      return (
+        <div className="preview preview-table">
+          <div className="row header" />
+          <div className="row" />
+          <div className="row" />
+        </div>
+      )
+    case 'slack':
+      return (
+        <div className="preview preview-connector">
+          <div className="conn-channel">#ops-alerts</div>
+          <div className="conn-msg">◆ New refund issued — $25.00</div>
+        </div>
+      )
+    case 'email':
+      return (
+        <div className="preview preview-connector">
+          <div className="conn-msg">✉ to: ops@company.com</div>
+          <div className="conn-msg muted">subject: Case #4821 approved</div>
+        </div>
+      )
+    case 'webhook':
+      return (
+        <div className="preview preview-connector">
+          <div className="conn-query">POST https://hooks…</div>
+          <div className="conn-msg muted">delivers linked activity</div>
+        </div>
+      )
   }
 }
 
@@ -200,6 +251,7 @@ export default function BlockCard({
   onMove,
   onDelete,
   onRename,
+  onCycleRole,
   onStartLink,
 }: Props) {
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
@@ -254,6 +306,14 @@ export default function BlockCard({
           onChange={(e) => onRename(block.id, e.target.value)}
           aria-label="Block name"
         />
+        <button
+          className={`role-badge${(block.role ?? 'everyone') !== 'everyone' ? ' gated' : ''}`}
+          onClick={() => onCycleRole(block.id)}
+          title={`Visible to: ${ROLE_LABELS[block.role ?? 'everyone']} — click to change`}
+          aria-label={`Change access for ${block.label} (currently ${ROLE_LABELS[block.role ?? 'everyone']})`}
+        >
+          {(block.role ?? 'everyone') === 'everyone' ? 'All' : block.role === 'ops' ? 'Ops' : 'Adm'}
+        </button>
         <button className="block-delete" onClick={() => onDelete(block.id)} aria-label="Delete block">
           ✕
         </button>

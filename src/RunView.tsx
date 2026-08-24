@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BackendConfig, Block, Link, Page } from './types'
-import { BLOCK_IO } from './types'
+import type { AuthConfig, BackendConfig, Block, DemoUser, Link, Page, Role } from './types'
+import { BLOCK_IO, DEMO_USERS, ROLE_LABELS, ROLE_RANK } from './types'
 
 export interface RuntimeRecord {
   id: string
@@ -19,6 +19,7 @@ interface Props {
   links: Link[]
   pages: Page[]
   backend: BackendConfig
+  auth: AuthConfig
   onExit: () => void
 }
 
@@ -37,9 +38,31 @@ function seedData(blocks: Block[]): DataMap {
       ]
     } else if (block.type === 'transactions') {
       data[block.id] = [
+        { id: newRecId(), at: Date.now() - 86_400_000, source: block.label, title: 'Whole Foods', amount: -84.12 },
+        { id: newRecId(), at: Date.now() - 43_200_000, source: block.label, title: 'Rent — August', amount: -1850 },
         { id: newRecId(), at: Date.now() - 7200_000, source: block.label, title: 'Payroll', amount: 2150 },
         { id: newRecId(), at: Date.now() - 5400_000, source: block.label, title: 'Blue Bottle', amount: -6.4 },
         { id: newRecId(), at: Date.now() - 3600_000, source: block.label, title: 'Lyft', amount: -18.25 },
+      ]
+    } else if (block.type === 'stripe') {
+      data[block.id] = [
+        { id: newRecId(), at: Date.now() - 10_800_000, source: block.label, title: 'ch_3OkT2b — Acme Inc (Pro plan)', amount: 149 },
+        { id: newRecId(), at: Date.now() - 9000_000, source: block.label, title: 'ch_3OkT9x — Globex (Starter)', amount: 29 },
+        { id: newRecId(), at: Date.now() - 5400_000, source: block.label, title: 'ch_3OkUc4 — Initech (Pro plan)', amount: 149 },
+        { id: newRecId(), at: Date.now() - 3600_000, source: block.label, title: 'Payout → bank •••6841', amount: -1320 },
+      ]
+    } else if (block.type === 'postgres') {
+      data[block.id] = [
+        { id: newRecId(), at: Date.now() - 259_200_000, source: block.label, title: 'jane@acme.com — signup (verified)', status: 'approved' },
+        { id: newRecId(), at: Date.now() - 172_800_000, source: block.label, title: 'omar@globex.io — signup (pending)', status: 'pending' },
+        { id: newRecId(), at: Date.now() - 86_400_000, source: block.label, title: 'lin@initech.dev — signup (verified)', status: 'approved' },
+        { id: newRecId(), at: Date.now() - 43_200_000, source: block.label, title: 'sam@umbrella.co — signup (rejected)', status: 'rejected' },
+      ]
+    } else if (block.type === 'sheets') {
+      data[block.id] = [
+        { id: newRecId(), at: Date.now() - 172_800_000, source: block.label, title: 'Invoice — Staples office supplies', amount: -212.4 },
+        { id: newRecId(), at: Date.now() - 86_400_000, source: block.label, title: 'Invoice — AWS July', amount: -1840.22 },
+        { id: newRecId(), at: Date.now() - 43_200_000, source: block.label, title: 'Invoice — Figma seats', amount: -144 },
       ]
     } else {
       data[block.id] = []
@@ -76,7 +99,7 @@ function timeAgo(at: number): string {
 const money = (n: number) =>
   `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export default function RunView({ toolName, blocks, links, pages, backend, onExit }: Props) {
+export default function RunView({ toolName, blocks, links, pages, backend, auth, onExit }: Props) {
   const [data, setData] = useState<DataMap>(() =>
     backend.kind === 'browser' ? (loadBrowserData(blocks) ?? seedData(blocks)) : seedData(blocks),
   )
@@ -85,6 +108,7 @@ export default function RunView({ toolName, blocks, links, pages, backend, onExi
   const [frozen, setFrozen] = useState<Record<string, boolean>>({})
   const [linked, setLinked] = useState<Record<string, boolean>>({})
   const [flagState, setFlagState] = useState<Record<string, Record<string, boolean>>>({})
+  const [user, setUser] = useState<DemoUser | null>(auth.required ? null : { username: '', password: '', role: 'admin' })
   const [activePage, setActivePage] = useState(pages[0]?.id ?? '')
   const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'unreachable' | null>(
     backend.kind === 'rest' ? 'checking' : null,
@@ -183,7 +207,16 @@ export default function RunView({ toolName, blocks, links, pages, backend, onExi
     setData(seedData(blocks))
   }
 
-  const pageBlocks = blocks.filter((b) => b.pageId === activePage)
+  const roleRank = ROLE_RANK[user?.role ?? 'everyone']
+  const canSee = (role: Role | undefined) => ROLE_RANK[role ?? 'everyone'] <= roleRank
+  const visiblePages = pages.filter((p) => canSee(p.role))
+  const shownPage = visiblePages.some((p) => p.id === activePage) ? activePage : (visiblePages[0]?.id ?? '')
+
+  if (auth.required && !user) {
+    return <SignIn toolName={toolName} onSignIn={setUser} onExit={onExit} />
+  }
+
+  const pageBlocks = blocks.filter((b) => b.pageId === shownPage && canSee(b.role))
 
   // Arrange blocks into a clean app layout instead of whiteboard positions:
   // small stat cards up top, data views in the main column, actions in a sidebar.
@@ -200,12 +233,13 @@ export default function RunView({ toolName, blocks, links, pages, backend, onExi
     'flags',
     'customer',
     'text',
+    'webhook',
   ])
   const sideBlocks = pageBlocks.filter((b) => SIDE_TYPES.has(b.type)).sort(byPosition)
   const mainBlocks = pageBlocks
     .filter((b) => b.type !== 'kpi' && b.type !== 'balance' && !SIDE_TYPES.has(b.type))
     .sort(byPosition)
-  const activePageName = pages.find((p) => p.id === activePage)?.name ?? ''
+  const activePageName = pages.find((p) => p.id === shownPage)?.name ?? ''
 
   return (
     <div className="run-view">
@@ -216,10 +250,10 @@ export default function RunView({ toolName, blocks, links, pages, backend, onExi
           <span className="run-badge">running</span>
         </div>
         <nav className="run-pages">
-          {pages.map((page) => (
+          {visiblePages.map((page) => (
             <button
               key={page.id}
-              className={`run-page-tab${page.id === activePage ? ' active' : ''}`}
+              className={`run-page-tab${page.id === shownPage ? ' active' : ''}`}
               onClick={() => setActivePage(page.id)}
             >
               {page.name}
@@ -227,6 +261,14 @@ export default function RunView({ toolName, blocks, links, pages, backend, onExi
           ))}
         </nav>
         <div className="topbar-actions">
+          {auth.required && user && (
+            <span className="run-user">
+              {user.username} · {ROLE_LABELS[user.role]}
+              <button className="run-signout" onClick={() => setUser(null)}>
+                Sign out
+              </button>
+            </span>
+          )}
           {apiStatus === 'ok' && <span className="api-status ok">API connected</span>}
           {apiStatus === 'unreachable' && (
             <span className="api-status bad">API unreachable — using in-memory data</span>
@@ -546,7 +588,213 @@ function RuntimeBody(props: RuntimeBlockProps) {
           ))}
         </div>
       )
+    case 'stripe':
+      return (
+        <div className="run-connector">
+          <div className="run-list">
+            {filtered.slice(-6).map((r) => (
+              <div key={r.id} className="run-list-item">
+                <span>{r.title}</span>
+                <span className={r.amount !== undefined && r.amount >= 0 ? 'run-credit' : 'run-debit'}>
+                  {r.amount !== undefined ? money(r.amount) : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+          <button
+            className="run-sync"
+            onClick={() =>
+              props.emit({
+                title: `ch_3Ok${Math.random().toString(36).slice(2, 6)} — Hooli (Pro plan)`,
+                amount: 149,
+              })
+            }
+          >
+            ⟳ Sync charges
+          </button>
+        </div>
+      )
+    case 'postgres':
+      return (
+        <div className="run-connector">
+          <div className="run-sql">SELECT * FROM signups ORDER BY created_at DESC;</div>
+          <div className="run-list">
+            {filtered.length === 0 && <p className="run-empty">No rows matched.</p>}
+            {filtered.slice(-6).map((r) => (
+              <div key={r.id} className="run-list-item">
+                <span>{r.title}</span>
+                <span className="run-when">{timeAgo(r.at)}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            className="run-sync"
+            onClick={() =>
+              props.emit({ title: `riley+${Math.floor(Math.random() * 90 + 10)}@hooli.xyz — signup (pending)`, status: 'pending' })
+            }
+          >
+            ▸ Run query
+          </button>
+        </div>
+      )
+    case 'sheets':
+      return (
+        <div className="run-connector">
+          <div className="run-list">
+            {filtered.slice(-6).map((r) => (
+              <div key={r.id} className="run-list-item">
+                <span>{r.title}</span>
+                <span className={r.amount !== undefined && r.amount >= 0 ? 'run-credit' : 'run-debit'}>
+                  {r.amount !== undefined ? money(r.amount) : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+          <button
+            className="run-sync"
+            onClick={() =>
+              props.emit({
+                title: 'Invoice — Notion seats',
+                amount: -(Math.floor(Math.random() * 200) + 40),
+              })
+            }
+          >
+            ⟳ Sync sheet
+          </button>
+        </div>
+      )
+    case 'slack':
+      return (
+        <div className="run-slack">
+          <div className="run-channel">#ops-alerts</div>
+          {dataset.length === 0 && <p className="run-empty">Link blocks to post their activity here.</p>}
+          {[...dataset].reverse().slice(0, 5).map((r) => (
+            <div key={r.id} className="run-slack-msg">
+              <span className="run-slack-bot">◆ toolbot</span>
+              <span>
+                {r.source}: {r.title}
+                {r.amount !== undefined ? ` (${money(r.amount)})` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )
+    case 'email':
+      return (
+        <div className="run-email">
+          {dataset.length === 0 && <p className="run-empty">Link blocks to email their activity.</p>}
+          {[...dataset].reverse().slice(0, 5).map((r) => (
+            <div key={r.id} className="run-email-item">
+              <span className="run-email-to">✉ to ops@company.com · {timeAgo(r.at)}</span>
+              <span>{r.source}: {r.title}</span>
+            </div>
+          ))}
+        </div>
+      )
+    case 'webhook':
+      return <RunWebhook dataset={dataset} />
   }
+}
+
+function RunWebhook({ dataset }: { dataset: RuntimeRecord[] }) {
+  const [url, setUrl] = useState('')
+  const [delivered, setDelivered] = useState<Record<string, 'ok' | 'failed' | 'queued'>>({})
+  const seen = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    for (const r of dataset) {
+      if (seen.current.has(r.id)) continue
+      seen.current.add(r.id)
+      if (!url.trim()) continue
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(r),
+      })
+        .then((res) => setDelivered((prev) => ({ ...prev, [r.id]: res.ok ? 'ok' : 'failed' })))
+        .catch(() => setDelivered((prev) => ({ ...prev, [r.id]: 'failed' })))
+    }
+  }, [dataset, url])
+
+  return (
+    <div className="run-webhook">
+      <input
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="https://hooks.example.com/notify"
+        aria-label="Webhook URL"
+      />
+      {dataset.length === 0 && <p className="run-empty">Link blocks to deliver their activity.</p>}
+      {[...dataset].reverse().slice(0, 4).map((r) => (
+        <div key={r.id} className="run-list-item">
+          <span>{r.title}</span>
+          <span className={`run-delivery ${delivered[r.id] ?? 'queued'}`}>
+            {url.trim() ? (delivered[r.id] ?? 'queued') : 'queued (no URL)'}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SignIn({
+  toolName,
+  onSignIn,
+  onExit,
+}: {
+  toolName: string
+  onSignIn: (user: DemoUser) => void
+  onExit: () => void
+}) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  return (
+    <div className="run-view signin-view">
+      <form
+        className="signin-card"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const match = DEMO_USERS.find((u) => u.username === username.trim() && u.password === password)
+          if (!match) {
+            setError('Wrong username or password. Try one of the demo users below.')
+            return
+          }
+          onSignIn(match)
+        }}
+      >
+        <div className="signin-brand">
+          <span className="brand-mark">◆</span> {toolName}
+        </div>
+        <h1>Sign in</h1>
+        <label className="run-field">
+          <span>Username</span>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+        </label>
+        <label className="run-field">
+          <span>Password</span>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        {error && <p className="signin-error">{error}</p>}
+        <button type="submit" className="signin-btn" disabled={!username.trim() || !password}>
+          Sign in
+        </button>
+        <div className="signin-demo">
+          {DEMO_USERS.map((u) => (
+            <span key={u.username}>
+              <code>
+                {u.username} / {u.password}
+              </code>{' '}
+              {ROLE_LABELS[u.role]}
+            </span>
+          ))}
+        </div>
+        <button type="button" className="signin-exit" onClick={onExit}>
+          ← Exit to builder
+        </button>
+      </form>
+    </div>
+  )
 }
 
 function RunForm({ emit }: { emit: RuntimeBlockProps['emit'] }) {

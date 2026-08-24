@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BlockCard from './BlockCard'
 import RunView from './RunView'
-import type { BackendConfig, BackendKind, Block, BlockType, Link, Page, SavedTool } from './types'
+import type { AuthConfig, BackendConfig, BackendKind, Block, BlockType, Link, Page, Role, SavedTool } from './types'
 import {
   BACKEND_LABELS,
+  DEMO_USERS,
+  ROLE_LABELS,
   PALETTE,
   SECTION_TITLES,
   blocksFromPrompt,
@@ -37,7 +39,15 @@ const LABELS: Record<BlockType, string> = {
   refund: 'Refund Action',
   flags: 'Feature Flags',
   audit: 'Audit Log',
+  stripe: 'Stripe Payments',
+  postgres: 'Postgres Query',
+  sheets: 'Google Sheet',
+  slack: 'Slack Notify',
+  email: 'Email Sender',
+  webhook: 'Webhook Out',
 }
+
+const NEXT_ROLE: Record<Role, Role> = { everyone: 'ops', ops: 'admin', admin: 'everyone' }
 
 interface ChatMessage {
   id: string
@@ -46,9 +56,9 @@ interface ChatMessage {
   pending?: boolean
 }
 
-const SECTIONS = ['general', 'fintech', 'ops'] as const
+const SECTIONS = ['general', 'fintech', 'ops', 'connectors'] as const
 type Section = (typeof SECTIONS)[number]
-type PanelKey = Section | 'tools' | 'sitemap' | 'backend'
+type PanelKey = Section | 'tools' | 'sitemap' | 'backend' | 'access'
 
 /** Wire anchor: vertical center of the block header. */
 const PORT_Y = 21
@@ -67,6 +77,7 @@ export default function App() {
   const [blocks, setBlocks] = useState<Block[]>([])
   const [links, setLinks] = useState<Link[]>([])
   const [backend, setBackend] = useState<BackendConfig>({ kind: 'memory', restUrl: '' })
+  const [auth, setAuth] = useState<AuthConfig>({ required: false })
   const [running, setRunning] = useState(false)
   const [toolName, setToolName] = useState('Untitled tool')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -82,10 +93,12 @@ export default function App() {
   const [collapsed, setCollapsed] = useState<Record<PanelKey, boolean>>({
     sitemap: false,
     backend: false,
+    access: false,
     tools: true,
     general: false,
     fintech: false,
     ops: false,
+    connectors: false,
   })
   const [savedTools, setSavedTools] = useState<SavedTool[]>(loadSavedTools)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -148,6 +161,14 @@ export default function App() {
   const handleRename = useCallback((id: string, label: string) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, label } : b)))
   }, [])
+
+  const handleCycleRole = useCallback((id: string) => {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, role: NEXT_ROLE[b.role ?? 'everyone'] } : b)))
+  }, [])
+
+  const cyclePageRole = (id: string) => {
+    setPages((prev) => prev.map((p) => (p.id === id ? { ...p, role: NEXT_ROLE[p.role ?? 'everyone'] } : p)))
+  }
 
   /* ---------- linking ---------- */
 
@@ -325,12 +346,15 @@ export default function App() {
         x: b.x - minX,
         y: b.y - minY,
         page: pageIndex.get(b.pageId) ?? 0,
+        ...(b.role && b.role !== 'everyone' ? { role: b.role } : {}),
       })),
       pages: pages.map((p) => p.name),
+      pageRoles: pages.map((p) => p.role ?? 'everyone'),
       links: links
         .filter((l) => index.has(l.from) && index.has(l.to))
         .map((l) => ({ from: index.get(l.from)!, to: index.get(l.to)! })),
       backend,
+      auth,
     }
   }
 
@@ -346,7 +370,7 @@ export default function App() {
     const multiPage = (tool.pages?.length ?? 1) > 1
     let pageIds: string[]
     if (multiPage) {
-      const newPages = tool.pages!.map((name) => ({ id: newId(), name }))
+      const newPages = tool.pages!.map((name, i) => ({ id: newId(), name, role: tool.pageRoles?.[i] ?? 'everyone' }))
       setPages((prev) => [...prev, ...newPages])
       pageIds = newPages.map((p) => p.id)
       setActivePageId(newPages[0].id)
@@ -361,6 +385,7 @@ export default function App() {
       x: b.x + offset,
       y: b.y + offset,
       pageId: pageIds[Math.min(b.page ?? 0, pageIds.length - 1)],
+      role: b.role ?? 'everyone',
     }))
     setBlocks((prev) => [...prev, ...newBlocks])
     if (tool.links) {
@@ -370,6 +395,7 @@ export default function App() {
       ])
     }
     if (tool.backend) setBackend(tool.backend)
+    if (tool.auth) setAuth(tool.auth)
     setToolName(tool.name)
   }
 
@@ -418,6 +444,7 @@ export default function App() {
         links={links}
         pages={pages}
         backend={backend}
+        auth={auth}
         onExit={() => setRunning(false)}
       />
     )
@@ -475,6 +502,14 @@ export default function App() {
                       </span>
                     </button>
                     <span className="tool-actions">
+                      <button
+                        className={`role-badge${(page.role ?? 'everyone') !== 'everyone' ? ' gated' : ''}`}
+                        onClick={() => cyclePageRole(page.id)}
+                        title={`Visible to: ${ROLE_LABELS[page.role ?? 'everyone']} — click to change`}
+                        aria-label={`Change access for ${page.name} (currently ${ROLE_LABELS[page.role ?? 'everyone']})`}
+                      >
+                        {(page.role ?? 'everyone') === 'everyone' ? 'All' : page.role === 'ops' ? 'Ops' : 'Adm'}
+                      </button>
                       <button onClick={() => renamePage(page.id)} title="Rename page" aria-label={`Rename ${page.name}`}>
                         ✎
                       </button>
@@ -529,6 +564,50 @@ export default function App() {
                   {backend.kind === 'browser' && 'Data persists in this browser between runs.'}
                   {backend.kind === 'rest' && 'Events POST to your API; falls back to memory if unreachable.'}
                 </p>
+              </div>
+            )}
+          </section>
+
+          <section>
+            <button
+              type="button"
+              className="section-toggle"
+              onClick={() => toggleSection('access')}
+              aria-expanded={!collapsed.access}
+            >
+              <span className={`chevron${collapsed.access ? ' closed' : ''}`}>▾</span>
+              <h2>Access</h2>
+              {auth.required && <span className="section-count">on</span>}
+            </button>
+            {!collapsed.access && (
+              <div className="access-picker">
+                <label className="access-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={auth.required}
+                    onChange={(e) => setAuth({ required: e.target.checked })}
+                  />
+                  Require sign-in
+                </label>
+                {auth.required ? (
+                  <>
+                    <p className="backend-hint">
+                      Demo users — gate pages in the Sitemap or blocks via the 🔒 badge:
+                    </p>
+                    <ul className="demo-users">
+                      {DEMO_USERS.map((u) => (
+                        <li key={u.username}>
+                          <code>
+                            {u.username} / {u.password}
+                          </code>
+                          <span>{ROLE_LABELS[u.role]}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="backend-hint">The compiled tool opens without a sign-in screen.</p>
+                )}
               </div>
             )}
           </section>
@@ -680,6 +759,7 @@ export default function App() {
               onMove={handleMove}
               onDelete={handleDelete}
               onRename={handleRename}
+              onCycleRole={handleCycleRole}
               onStartLink={handleStartLink}
             />
           ))}

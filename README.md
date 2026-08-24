@@ -11,9 +11,11 @@ A whiteboard-style builder for internal tools. Drag executable feature blocks on
 - **Backend selector** — choose where runtime data lives: in-memory, browser storage (persists between runs), or a REST API you provide (events are POSTed; falls back to in-memory when unreachable)
 - **Fintech blocks** — balance card, transaction feed, payment form, virtual card, and bank-account linking
 - **Internal ops blocks** — building blocks drawn from real internal tools (KYC review queues, refunds dashboards, feature-flag admin panels): customer info, review queue, refund action, feature flags, and audit log
+- **Connectors** — external app/data blocks: Stripe Payments, Postgres Query, and Google Sheet emit seeded records into the graph (with sync/query buttons that pull more), while Slack Notify, Email Sender, and Webhook Out are sinks that surface linked activity as channel messages, sent emails, or real HTTP POSTs to a URL you enter (connectors are safe browser-side demos — no credentials involved)
+- **Auth & roles** — toggle “Require sign-in” in the Access section to gate the compiled tool behind a sign-in screen with demo users (`admin`/`admin`, `ops`/`ops`, `viewer`/`viewer`); every page and block has a role badge (All / Ops / Adm) — pages and blocks above the signed-in user's role are hidden at runtime
 - **Devin chat** — describe what you want (e.g. "a KYC review queue with customer info and an audit log") and matching blocks are created and auto-linked on the board
 - **Edit in place** — rename blocks, reposition them, delete them or their links, or clear the page
-- **Save and import tools** — save the board (blocks, links, pages, and backend config) as a named tool; the My Tools section lets you import it back, export it as a `.toolboard.json` file, or import a tool from a file (saved tools persist in localStorage)
+- **Save and import tools** — save the board (blocks, links, pages, roles, auth, and backend config) as a named tool; the My Tools section lets you import it back, export it as a `.toolboard.json` file, or import a tool from a file (saved tools persist in localStorage)
 
 ## Getting started
 

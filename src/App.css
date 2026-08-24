@@ -1672,3 +1672,327 @@ body {
 .run-section .preview-card {
   margin: 4px 16px 16px;
 }
+
+/* ---------- connectors + access ---------- */
+.preview-connector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preview-connector .row {
+  height: 10px;
+  border-radius: 4px;
+  background: #eceef2;
+}
+
+.conn-query {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: #4f46e5;
+  background: #eef0ff;
+  border-radius: 5px;
+  padding: 4px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conn-channel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #611f69;
+}
+
+.conn-msg {
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conn-msg.muted {
+  color: var(--muted);
+}
+
+.role-badge {
+  border: 1px solid var(--border);
+  background: none;
+  border-radius: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 1px 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.role-badge.gated {
+  border-color: #b45309;
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.access-picker {
+  padding: 4px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.access-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.demo-users {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.demo-users li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.demo-users code {
+  font-size: 10.5px;
+  background: #eceef2;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* ---------- run mode: connectors ---------- */
+.run-connector {
+  display: flex;
+  flex-direction: column;
+}
+
+.run-sql {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: #4f46e5;
+  background: #eef0ff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 4px 16px 6px;
+}
+
+.run-sync {
+  margin: 2px 16px 14px;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.run-sync:hover {
+  background: #f3f4f8;
+}
+
+.run-slack {
+  padding: 4px 16px 14px;
+}
+
+.run-channel {
+  font-size: 13px;
+  font-weight: 700;
+  color: #611f69;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.run-slack-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12.5px;
+  padding: 5px 0;
+}
+
+.run-slack-bot {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.run-email {
+  padding: 4px 16px 14px;
+}
+
+.run-email-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12.5px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f1f4;
+}
+
+.run-email-item:last-child {
+  border-bottom: none;
+}
+
+.run-email-to {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.run-webhook {
+  padding: 4px 16px 14px;
+}
+
+.run-webhook input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  margin-bottom: 6px;
+}
+
+.run-webhook .run-list-item {
+  font-size: 12.5px;
+  padding: 6px 0;
+}
+
+.run-delivery {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.run-delivery.ok {
+  color: #16a34a;
+}
+
+.run-delivery.failed {
+  color: #dc2626;
+}
+
+/* ---------- run mode: auth ---------- */
+.run-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.run-signout {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: none;
+  color: #fff;
+  border-radius: 7px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+
+.run-signout:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.signin-view {
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  background: var(--bg);
+}
+
+.signin-card {
+  width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(20, 24, 40, 0.1);
+  padding: 28px 28px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.signin-brand {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.signin-card h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.signin-card .run-field input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.signin-error {
+  margin: 0;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.signin-btn {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 10px 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.signin-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.signin-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.signin-demo code {
+  background: #eceef2;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.signin-exit {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  align-self: center;
+}
