@@ -22,6 +22,7 @@ import {
   BACKEND_LABELS,
   DEMO_USERS,
   ROLE_LABELS,
+  USER_ROLE_LABELS,
   PALETTE,
   SECTION_TITLES,
   canLink,
@@ -694,7 +695,7 @@ export default function App() {
                           <code>
                             {u.username} / {u.password}
                           </code>
-                          <span>{ROLE_LABELS[u.role]}</span>
+                          <span>{USER_ROLE_LABELS[u.role]}</span>
                         </li>
                       ))}
                     </ul>

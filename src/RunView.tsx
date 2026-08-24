@@ -11,7 +11,16 @@ import type {
   Page,
   Role,
 } from './types'
-import { BLOCK_IO, COLUMN_LABELS, DEMO_USERS, ROLE_LABELS, ROLE_RANK, defaultConfig, isHttpBackend } from './types'
+import {
+  BLOCK_IO,
+  COLUMN_LABELS,
+  DEMO_USERS,
+  ROLE_LABELS,
+  USER_ROLE_LABELS,
+  canSeeRole,
+  defaultConfig,
+  isHttpBackend,
+} from './types'
 
 export interface RuntimeRecord {
   id: string
@@ -219,8 +228,8 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
     setData(seedData(blocks))
   }
 
-  const roleRank = ROLE_RANK[user?.role ?? 'everyone']
-  const canSee = (role: Role | undefined) => ROLE_RANK[role ?? 'everyone'] <= roleRank
+  // Without sign-in there is nobody to gate against, so every role badge is shown.
+  const canSee = (role: Role | undefined) => !auth.required || canSeeRole(role, user?.role ?? 'everyone')
   const visiblePages = pages.filter((p) => canSee(p.role))
   const shownPage = visiblePages.some((p) => p.id === activePage) ? activePage : (visiblePages[0]?.id ?? '')
 
@@ -277,7 +286,7 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
         <div className="topbar-actions">
           {auth.required && user && (
             <span className="run-user">
-              {user.username} · {ROLE_LABELS[user.role]}
+              {user.username} · {USER_ROLE_LABELS[user.role]}
               <button className="run-signout" onClick={() => setUser(null)}>
                 Sign out
               </button>
@@ -417,7 +426,11 @@ function RuntimeBody(props: RuntimeBlockProps) {
   const limit = config.rowLimit ?? 6
 
   if (props.dataHidden && RECORD_VIEW_TYPES.has(block.type)) {
-    return <p className="run-locked">🔒 Records here are visible to admins only.</p>
+    return (
+      <p className="run-locked">
+        🔒 Records here are visible to {ROLE_LABELS[config.dataRole ?? 'admin'].toLowerCase()}.
+      </p>
+    )
   }
 
   const filtered = query
@@ -862,7 +875,7 @@ function SignIn({
               <code>
                 {u.username} / {u.password}
               </code>{' '}
-              {ROLE_LABELS[u.role]}
+              {USER_ROLE_LABELS[u.role]}
             </span>
           ))}
         </div>
