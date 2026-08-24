@@ -52,6 +52,123 @@ export interface AuthConfig {
   required: boolean
 }
 
+export type FieldType = 'text' | 'number' | 'date' | 'select' | 'textarea'
+
+export interface FormField {
+  id: string
+  label: string
+  type: FieldType
+  required: boolean
+  /** Choices for `select` fields. */
+  options?: string[]
+}
+
+export type ColumnKey = 'title' | 'details' | 'amount' | 'status' | 'source' | 'when'
+
+export const COLUMN_LABELS: Record<ColumnKey, string> = {
+  title: 'Title',
+  details: 'Details',
+  amount: 'Amount',
+  status: 'Status',
+  source: 'Source',
+  when: 'When',
+}
+
+export const ALL_COLUMNS: ColumnKey[] = ['title', 'details', 'amount', 'status', 'source', 'when']
+
+/** Per-block settings edited in the builder's Inspector. Everything is optional; defaults come from `defaultConfig`. */
+export interface BlockConfig {
+  /** form / payment / refund */
+  fields?: FormField[]
+  submitLabel?: string
+  /** table / list / queue / transactions / audit / connectors */
+  columns?: ColumnKey[]
+  rowLimit?: number
+  /** text block */
+  text?: string
+  /** kpi */
+  metricLabel?: string
+  metricMode?: 'count' | 'sum'
+  metricUnit?: string
+  /** balance */
+  startingBalance?: number
+  /** input */
+  placeholder?: string
+  /** feature flags */
+  flags?: string[]
+  /** connectors */
+  channel?: string
+  emailTo?: string
+  webhookUrl?: string
+  sql?: string
+}
+
+let fieldSeq = 0
+export const newFieldId = () => `field-${Date.now().toString(36)}-${fieldSeq++}`
+
+const field = (label: string, type: FieldType, required = false, options?: string[]): FormField => ({
+  id: newFieldId(),
+  label,
+  type,
+  required,
+  ...(options ? { options } : {}),
+})
+
+/** Starting configuration for a freshly dropped block — every value is editable in the Inspector. */
+export function defaultConfig(type: BlockType): BlockConfig {
+  switch (type) {
+    case 'form':
+      return {
+        fields: [field('Title', 'text', true), field('Amount', 'number')],
+        submitLabel: 'Submit',
+      }
+    case 'payment':
+      return {
+        fields: [field('Recipient', 'text', true), field('Amount', 'number', true)],
+        submitLabel: 'Send',
+      }
+    case 'refund':
+      return {
+        fields: [
+          field('Amount', 'number', true),
+          field('Reason', 'select', true, ['duplicate charge', 'not received', 'fraud', 'other']),
+        ],
+        submitLabel: 'Issue refund',
+      }
+    case 'table':
+      return { columns: ['title', 'amount', 'when'], rowLimit: 6 }
+    case 'list':
+    case 'transactions':
+    case 'queue':
+    case 'audit':
+    case 'stripe':
+    case 'sheets':
+      return { rowLimit: 6 }
+    case 'postgres':
+      return { rowLimit: 6, sql: 'SELECT * FROM signups ORDER BY created_at DESC;' }
+    case 'text':
+      return { text: 'Double-click to edit this note.' }
+    case 'kpi':
+      return { metricLabel: '', metricMode: 'count', metricUnit: 'records' }
+    case 'balance':
+      return { startingBalance: 2500 }
+    case 'input':
+      return { placeholder: '⌕ Filter linked blocks…' }
+    case 'button':
+      return { submitLabel: 'Run' }
+    case 'flags':
+      return { flags: ['new-onboarding', 'instant-transfers'] }
+    case 'slack':
+      return { channel: '#ops-alerts', rowLimit: 5 }
+    case 'email':
+      return { emailTo: 'ops@company.com', rowLimit: 5 }
+    case 'webhook':
+      return { webhookUrl: '', rowLimit: 4 }
+    default:
+      return {}
+  }
+}
+
 export interface Block {
   id: string
   type: BlockType
@@ -60,6 +177,7 @@ export interface Block {
   y: number
   pageId: string
   role?: Role
+  config?: BlockConfig
   building?: boolean
 }
 
@@ -75,7 +193,7 @@ export interface Page {
   role?: Role
 }
 
-export type BackendKind = 'memory' | 'browser' | 'rest'
+export type BackendKind = 'memory' | 'browser' | 'rest' | 'aws' | 'azure'
 
 export interface BackendConfig {
   kind: BackendKind
@@ -86,7 +204,22 @@ export const BACKEND_LABELS: Record<BackendKind, string> = {
   memory: 'In-memory (resets on exit)',
   browser: 'Browser storage (persists)',
   rest: 'REST API (bring your own)',
+  aws: 'AWS — API Gateway + Lambda',
+  azure: 'Azure — Functions',
 }
+
+export const BACKEND_HINTS: Record<BackendKind, string> = {
+  memory: 'Data lives in memory while the tool runs.',
+  browser: 'Data persists in this browser between runs.',
+  rest: 'Records load from GET /records and every submission POSTs to /events.',
+  aws: 'Point at your API Gateway stage URL (Lambda + DynamoDB). See examples/aws-lambda in the repo.',
+  azure: 'Point at your Function App URL (Functions + Table/Cosmos). See examples/azure-function in the repo.',
+}
+
+/** Backends that persist through an HTTP endpoint using the documented /records + /events contract. */
+export const HTTP_BACKENDS: BackendKind[] = ['rest', 'aws', 'azure']
+
+export const isHttpBackend = (kind: BackendKind) => HTTP_BACKENDS.includes(kind)
 
 /** What each block emits downstream and accepts from upstream links. */
 export type SignalKind = 'records' | 'event' | 'query'
@@ -200,6 +333,7 @@ export interface SavedToolBlock {
   /** Index into the saved pages array. Absent in v1 exports (single page). */
   page?: number
   role?: Role
+  config?: BlockConfig
 }
 
 export interface SavedToolLink {
@@ -223,7 +357,7 @@ export interface SavedTool {
 
 const STORAGE_KEY = 'toolboard-saved-tools'
 const VALID_TYPES = new Set<string>(PALETTE.map((p) => p.type))
-const BACKEND_KINDS = new Set<string>(['memory', 'browser', 'rest'])
+const BACKEND_KINDS = new Set<string>(['memory', 'browser', 'rest', 'aws', 'azure'])
 const ROLES = new Set<string>(['everyone', 'ops', 'admin'])
 
 function isSavedTool(value: unknown): value is SavedTool {
@@ -247,7 +381,8 @@ function isSavedTool(value: unknown): value is SavedTool {
       typeof block.x === 'number' &&
       typeof block.y === 'number' &&
       (block.page === undefined || typeof block.page === 'number') &&
-      (block.role === undefined || (typeof block.role === 'string' && ROLES.has(block.role)))
+      (block.role === undefined || (typeof block.role === 'string' && ROLES.has(block.role))) &&
+      (block.config === undefined || (typeof block.config === 'object' && block.config !== null))
     )
   })
   if (!blocksOk) return false

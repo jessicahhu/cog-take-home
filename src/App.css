@@ -1996,3 +1996,201 @@ body {
   cursor: pointer;
   align-self: center;
 }
+
+/* --- Inspector (per-block configuration) --- */
+
+.inspector {
+  border-bottom: 1px solid var(--border);
+  max-height: 55%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inspector-head h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-close {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.inspector-body {
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inspector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inspector-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.inspector-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.inspector-field {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fbfbfd;
+}
+
+.inspector-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inspector-field-row input[type='text'],
+.inspector-field-row input:not([type]),
+.inspector-options {
+  flex: 1;
+  min-width: 0;
+}
+
+.inspector input,
+.inspector select,
+.inspector textarea {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  color: inherit;
+}
+
+.inspector-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.inspector-icon {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+.inspector-icon:hover {
+  color: #c0392b;
+}
+
+.inspector-add,
+.inspector-reset {
+  align-self: flex-start;
+  border: 1px dashed var(--border);
+  background: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.inspector-add:hover,
+.inspector-reset:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.inspector-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.inspector-row.column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.inspector-row input,
+.inspector-row select,
+.inspector-row textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.inspector-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+
+.preview-form .field.named {
+  height: auto;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 2px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-form .field.empty {
+  height: auto;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 2px 6px;
+  border-style: dashed;
+}
+
+.preview-form .submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+  min-height: 14px;
+  width: auto;
+  max-width: 100px;
+  padding: 2px 8px;
+  color: #fff;
+  font-size: 10px;
+}

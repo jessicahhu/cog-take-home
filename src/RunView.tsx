@@ -1,17 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AuthConfig, BackendConfig, Block, DemoUser, Link, Page, Role } from './types'
-import { BLOCK_IO, DEMO_USERS, ROLE_LABELS, ROLE_RANK } from './types'
+import type {
+  AuthConfig,
+  BackendConfig,
+  Block,
+  BlockConfig,
+  ColumnKey,
+  DemoUser,
+  FormField,
+  Link,
+  Page,
+  Role,
+} from './types'
+import { BLOCK_IO, COLUMN_LABELS, DEMO_USERS, ROLE_LABELS, ROLE_RANK, defaultConfig, isHttpBackend } from './types'
 
 export interface RuntimeRecord {
   id: string
   at: number
   source: string
   title: string
+  /** Values of the remaining configured form fields, rendered as the Details column. */
+  details?: string
   amount?: number
   status?: 'pending' | 'approved' | 'rejected'
 }
 
 type DataMap = Record<string, RuntimeRecord[]>
+
+/** Wire format for the /records + /events endpoint contract. */
+type StoredRecord = RuntimeRecord & { blockId?: string }
 
 interface Props {
   toolName: string
@@ -111,22 +127,44 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
   const [user, setUser] = useState<DemoUser | null>(auth.required ? null : { username: '', password: '', role: 'admin' })
   const [activePage, setActivePage] = useState(pages[0]?.id ?? '')
   const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'unreachable' | null>(
-    backend.kind === 'rest' ? 'checking' : null,
+    isHttpBackend(backend.kind) ? 'checking' : null,
   )
   const apiOkRef = useRef(false)
 
   useEffect(() => {
-    if (backend.kind !== 'rest') return
+    if (!isHttpBackend(backend.kind)) return
     let cancelled = false
-    fetch(backend.restUrl, { method: 'GET' })
-      .then((res) => {
-        if (cancelled) return
-        apiOkRef.current = res.ok
-        setApiStatus(res.ok ? 'ok' : 'unreachable')
+    const base = backend.restUrl.replace(/\/$/, '')
+    fetch(`${base}/records`, { method: 'GET' })
+      .then(async (res) => {
+        if (cancelled || !res.ok) throw new Error('records unavailable')
+        const rows: unknown = await res.json()
+        apiOkRef.current = true
+        setApiStatus('ok')
+        if (!Array.isArray(rows)) return
+        setData((prev) => {
+          const next: DataMap = { ...prev }
+          for (const row of rows as StoredRecord[]) {
+            if (typeof row?.blockId !== 'string' || !(row.blockId in next)) continue
+            if (next[row.blockId].some((r) => r.id === row.id)) continue
+            const { blockId: _blockId, ...record } = row
+            next[row.blockId] = [...next[row.blockId], record]
+          }
+          return next
+        })
       })
       .catch(() => {
         if (cancelled) return
-        setApiStatus('unreachable')
+        // Older endpoints may only answer at the base URL — treat that as connected but empty.
+        fetch(base, { method: 'GET' })
+          .then((res) => {
+            if (cancelled) return
+            apiOkRef.current = res.ok
+            setApiStatus(res.ok ? 'ok' : 'unreachable')
+          })
+          .catch(() => {
+            if (!cancelled) setApiStatus('unreachable')
+          })
       })
     return () => {
       cancelled = true
@@ -181,11 +219,11 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
       const source = blockById.get(blockId)?.label ?? 'Unknown'
       const full: RuntimeRecord = { ...record, id: newRecId(), at: Date.now(), source }
       setData((prev) => ({ ...prev, [blockId]: [...(prev[blockId] ?? []), full] }))
-      if (backend.kind === 'rest' && apiOkRef.current) {
+      if (isHttpBackend(backend.kind) && apiOkRef.current) {
         fetch(backend.restUrl.replace(/\/$/, '') + '/events', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(full),
+          body: JSON.stringify({ ...full, blockId }),
         }).catch(() => {})
       }
     },
@@ -321,7 +359,7 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
         query={queryFor(block.id)}
         queryValue={queries[block.id] ?? ''}
         onQuery={(v) => setQueries((prev) => ({ ...prev, [block.id]: v }))}
-        text={texts[block.id] ?? 'Double-click to edit this note.'}
+        text={texts[block.id] ?? configOf(block).text ?? ''}
         onText={(v) => setTexts((prev) => ({ ...prev, [block.id]: v }))}
         frozen={frozen[block.id] ?? false}
         onFreeze={(v) => {
@@ -333,11 +371,11 @@ export default function RunView({ toolName, blocks, links, pages, backend, auth,
           setLinked((prev) => ({ ...prev, [block.id]: true }))
           emit(block.id, { title: 'Linked bank account Chase •••6841' })
         }}
-        flags={flagState[block.id] ?? { 'new-onboarding': true, 'instant-transfers': false }}
+        flags={flagState[block.id] ?? defaultFlags(block)}
         onFlag={(flag, on) => {
           setFlagState((prev) => ({
             ...prev,
-            [block.id]: { ...(prev[block.id] ?? { 'new-onboarding': true, 'instant-transfers': false }), [flag]: on },
+            [block.id]: { ...(prev[block.id] ?? defaultFlags(block)), [flag]: on },
           }))
           emit(block.id, { title: `${flag} → ${on ? 'on' : 'off'}` })
         }}
@@ -381,16 +419,19 @@ function RuntimeBlock(props: RuntimeBlockProps) {
 
 function RuntimeBody(props: RuntimeBlockProps) {
   const { block, dataset, query } = props
-  const filtered = query ? dataset.filter((r) => r.title.toLowerCase().includes(query)) : dataset
+  const config = configOf(block)
+  const limit = config.rowLimit ?? 6
+  const filtered = query
+    ? dataset.filter((r) => `${r.title} ${r.details ?? ''}`.toLowerCase().includes(query))
+    : dataset
 
   switch (block.type) {
     case 'form':
-      return <RunForm emit={props.emit} />
     case 'payment':
-      return <RunPayment emit={props.emit} />
     case 'refund':
-      return <RunRefund emit={props.emit} />
-    case 'table':
+      return <RunForm block={block} config={config} emit={props.emit} />
+    case 'table': {
+      const columns: ColumnKey[] = config.columns && config.columns.length > 0 ? config.columns : ['title']
       return (
         <div className="run-table">
           {filtered.length === 0 && <p className="run-empty">No records yet.</p>}
@@ -398,17 +439,17 @@ function RuntimeBody(props: RuntimeBlockProps) {
             <table>
               <thead>
                 <tr>
-                  <th>Title</th>
-                  <th>Amount</th>
-                  <th>When</th>
+                  {columns.map((c) => (
+                    <th key={c}>{COLUMN_LABELS[c]}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.slice(-6).map((r) => (
+                {filtered.slice(-limit).map((r) => (
                   <tr key={r.id}>
-                    <td>{r.title}</td>
-                    <td>{r.amount !== undefined ? money(r.amount) : '—'}</td>
-                    <td>{timeAgo(r.at)}</td>
+                    {columns.map((c) => (
+                      <td key={c}>{cellValue(r, c)}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -416,11 +457,12 @@ function RuntimeBody(props: RuntimeBlockProps) {
           )}
         </div>
       )
+    }
     case 'list':
       return (
         <div className="run-list">
           {filtered.length === 0 && <p className="run-empty">Nothing here yet.</p>}
-          {filtered.slice(-6).map((r) => (
+          {filtered.slice(-limit).map((r) => (
             <div key={r.id} className="run-list-item">
               <span>{r.title}</span>
               <span className="run-when">{timeAgo(r.at)}</span>
@@ -440,19 +482,22 @@ function RuntimeBody(props: RuntimeBlockProps) {
         </div>
       )
     }
-    case 'kpi':
+    case 'kpi': {
+      const sum = dataset.reduce((total, r) => total + (r.amount ?? 0), 0)
+      const value = config.metricMode === 'sum' ? money(sum) : dataset.length.toLocaleString()
       return (
         <div className="preview preview-kpi">
-          <span className="caption">{block.label}</span>
-          <span className="big">{dataset.length.toLocaleString()}</span>
-          <span className="delta">records</span>
+          <span className="caption">{config.metricLabel || block.label}</span>
+          <span className="big">{value}</span>
+          <span className="delta">{config.metricUnit ?? ''}</span>
         </div>
       )
+    }
     case 'button':
       return (
         <div className="preview preview-button">
           <button className="run-action-btn" onClick={() => props.emit({ title: `${block.label} triggered` })}>
-            Run
+            {config.submitLabel || 'Run'}
           </button>
         </div>
       )
@@ -462,7 +507,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
           <input
             value={props.queryValue}
             onChange={(e) => props.onQuery(e.target.value)}
-            placeholder="⌕ Filter linked blocks…"
+            placeholder={config.placeholder ?? '⌕ Filter linked blocks…'}
           />
         </div>
       )
@@ -471,7 +516,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
         <textarea className="run-text" value={props.text} onChange={(e) => props.onText(e.target.value)} rows={3} />
       )
     case 'balance': {
-      const total = 2500 + dataset.reduce((sum, r) => sum + (r.amount ?? 0), 0)
+      const total = (config.startingBalance ?? 2500) + dataset.reduce((sum, r) => sum + (r.amount ?? 0), 0)
       return (
         <div className="preview preview-balance">
           <span className="caption">{block.label}</span>
@@ -484,7 +529,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
       return (
         <div className="run-list">
           {filtered.length === 0 && <p className="run-empty">No transactions yet.</p>}
-          {filtered.slice(-6).map((r) => (
+          {filtered.slice(-limit).map((r) => (
             <div key={r.id} className="run-list-item">
               <span>{r.title}</span>
               <span className={r.amount !== undefined && r.amount >= 0 ? 'run-credit' : 'run-debit'}>
@@ -540,7 +585,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
       return (
         <div className="run-queue">
           {filtered.length === 0 && <p className="run-empty">Queue is empty.</p>}
-          {filtered.slice(-5).map((r) => (
+          {filtered.slice(-limit).map((r) => (
             <div key={r.id} className="run-case">
               <span className={`run-case-title${r.status && r.status !== 'pending' ? ` ${r.status}` : ''}`}>
                 {r.title}
@@ -580,7 +625,8 @@ function RuntimeBody(props: RuntimeBlockProps) {
       return (
         <div className="run-audit">
           {dataset.length === 0 && <p className="run-empty">No activity yet.</p>}
-          {[...dataset].reverse().slice(0, 6).map((r) => (
+          {[...dataset].reverse().slice(0, limit).map((r) => (
+
             <div key={r.id} className="entry">
               <span className="when">{timeAgo(r.at)}</span> {r.source}: {r.title}
               {r.status && r.status !== 'pending' ? ` (${r.status})` : ''}
@@ -592,7 +638,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
       return (
         <div className="run-connector">
           <div className="run-list">
-            {filtered.slice(-6).map((r) => (
+            {filtered.slice(-limit).map((r) => (
               <div key={r.id} className="run-list-item">
                 <span>{r.title}</span>
                 <span className={r.amount !== undefined && r.amount >= 0 ? 'run-credit' : 'run-debit'}>
@@ -617,10 +663,10 @@ function RuntimeBody(props: RuntimeBlockProps) {
     case 'postgres':
       return (
         <div className="run-connector">
-          <div className="run-sql">SELECT * FROM signups ORDER BY created_at DESC;</div>
+          <div className="run-sql">{config.sql ?? 'SELECT * FROM signups ORDER BY created_at DESC;'}</div>
           <div className="run-list">
             {filtered.length === 0 && <p className="run-empty">No rows matched.</p>}
-            {filtered.slice(-6).map((r) => (
+            {filtered.slice(-limit).map((r) => (
               <div key={r.id} className="run-list-item">
                 <span>{r.title}</span>
                 <span className="run-when">{timeAgo(r.at)}</span>
@@ -641,7 +687,7 @@ function RuntimeBody(props: RuntimeBlockProps) {
       return (
         <div className="run-connector">
           <div className="run-list">
-            {filtered.slice(-6).map((r) => (
+            {filtered.slice(-limit).map((r) => (
               <div key={r.id} className="run-list-item">
                 <span>{r.title}</span>
                 <span className={r.amount !== undefined && r.amount >= 0 ? 'run-credit' : 'run-debit'}>
@@ -666,9 +712,9 @@ function RuntimeBody(props: RuntimeBlockProps) {
     case 'slack':
       return (
         <div className="run-slack">
-          <div className="run-channel">#ops-alerts</div>
+          <div className="run-channel">{config.channel || '#ops-alerts'}</div>
           {dataset.length === 0 && <p className="run-empty">Link blocks to post their activity here.</p>}
-          {[...dataset].reverse().slice(0, 5).map((r) => (
+          {[...dataset].reverse().slice(0, limit).map((r) => (
             <div key={r.id} className="run-slack-msg">
               <span className="run-slack-bot">◆ toolbot</span>
               <span>
@@ -683,21 +729,48 @@ function RuntimeBody(props: RuntimeBlockProps) {
       return (
         <div className="run-email">
           {dataset.length === 0 && <p className="run-empty">Link blocks to email their activity.</p>}
-          {[...dataset].reverse().slice(0, 5).map((r) => (
+          {[...dataset].reverse().slice(0, limit).map((r) => (
             <div key={r.id} className="run-email-item">
-              <span className="run-email-to">✉ to ops@company.com · {timeAgo(r.at)}</span>
+              <span className="run-email-to">✉ to {config.emailTo || 'ops@company.com'} · {timeAgo(r.at)}</span>
               <span>{r.source}: {r.title}</span>
             </div>
           ))}
         </div>
       )
     case 'webhook':
-      return <RunWebhook dataset={dataset} />
+      return <RunWebhook dataset={dataset} config={config} />
   }
 }
 
-function RunWebhook({ dataset }: { dataset: RuntimeRecord[] }) {
-  const [url, setUrl] = useState('')
+/** Config with per-type defaults filled in — older boards saved before a setting existed still render. */
+function configOf(block: Block): BlockConfig {
+  return { ...defaultConfig(block.type), ...block.config }
+}
+
+function defaultFlags(block: Block): Record<string, boolean> {
+  const names = configOf(block).flags ?? []
+  return Object.fromEntries(names.map((name, i) => [name, i === 0]))
+}
+
+function cellValue(r: RuntimeRecord, column: ColumnKey): string {
+  switch (column) {
+    case 'title':
+      return r.title
+    case 'details':
+      return r.details ?? '—'
+    case 'amount':
+      return r.amount !== undefined ? money(r.amount) : '—'
+    case 'status':
+      return r.status ?? '—'
+    case 'source':
+      return r.source
+    default:
+      return timeAgo(r.at)
+  }
+}
+
+function RunWebhook({ dataset, config }: { dataset: RuntimeRecord[]; config: BlockConfig }) {
+  const [url, setUrl] = useState(config.webhookUrl ?? '')
   const [delivered, setDelivered] = useState<Record<string, 'ok' | 'failed' | 'queued'>>({})
   const seen = useRef<Set<string>>(new Set())
 
@@ -725,7 +798,7 @@ function RunWebhook({ dataset }: { dataset: RuntimeRecord[] }) {
         aria-label="Webhook URL"
       />
       {dataset.length === 0 && <p className="run-empty">Link blocks to deliver their activity.</p>}
-      {[...dataset].reverse().slice(0, 4).map((r) => (
+      {[...dataset].reverse().slice(0, config.rowLimit ?? 4).map((r) => (
         <div key={r.id} className="run-list-item">
           <span>{r.title}</span>
           <span className={`run-delivery ${delivered[r.id] ?? 'queued'}`}>
@@ -797,93 +870,82 @@ function SignIn({
   )
 }
 
-function RunForm({ emit }: { emit: RuntimeBlockProps['emit'] }) {
-  const [title, setTitle] = useState('')
-  const [amount, setAmount] = useState('')
-  return (
-    <form
-      className="run-form"
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (!title.trim()) return
-        const parsed = parseFloat(amount)
-        emit({ title: title.trim(), amount: Number.isFinite(parsed) ? parsed : undefined })
-        setTitle('')
-        setAmount('')
-      }}
-    >
-      <label className="run-field">
-        <span>Title</span>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. New case" />
-      </label>
-      <label className="run-field">
-        <span>Amount (optional)</span>
-        <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" inputMode="decimal" />
-      </label>
-      <button type="submit" disabled={!title.trim()}>
-        Submit
-      </button>
-    </form>
-  )
-}
+function RunForm({
+  block,
+  config,
+  emit,
+}: {
+  block: Block
+  config: BlockConfig
+  emit: RuntimeBlockProps['emit']
+}) {
+  const fields = config.fields ?? []
+  const [values, setValues] = useState<Record<string, string>>({})
+  const value = (f: FormField) => values[f.id] ?? ''
+  const missing = fields.some((f) => f.required && value(f).trim() === '')
 
-function RunPayment({ emit }: { emit: RuntimeBlockProps['emit'] }) {
-  const [to, setTo] = useState('')
-  const [amount, setAmount] = useState('')
-  const parsed = parseFloat(amount)
-  const valid = to.trim() !== '' && Number.isFinite(parsed) && parsed > 0
-  return (
-    <form
-      className="run-form"
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (!valid) return
-        emit({ title: `Payment to ${to.trim()}`, amount: -parsed })
-        setTo('')
-        setAmount('')
-      }}
-    >
-      <label className="run-field">
-        <span>Recipient</span>
-        <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="@recipient" />
-      </label>
-      <label className="run-field">
-        <span>Amount</span>
-        <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="$ 0.00" inputMode="decimal" />
-      </label>
-      <button type="submit" disabled={!valid}>
-        Send
-      </button>
-    </form>
-  )
-}
+  const submit = () => {
+    const filled = fields.filter((f) => value(f).trim() !== '')
+    const titleField = filled.find((f) => f.type !== 'number')
+    const amountField = filled.find((f) => f.type === 'number')
+    const amount = amountField ? parseFloat(value(amountField)) : NaN
+    const signed = block.type === 'payment' ? -Math.abs(amount) : amount
+    const rest = filled.filter((f) => f !== titleField && f !== amountField)
+    emit({
+      title: titleField ? value(titleField).trim() : `${block.label} submitted`,
+      ...(Number.isFinite(signed) ? { amount: signed } : {}),
+      ...(rest.length > 0 ? { details: rest.map((f) => `${f.label}: ${value(f).trim()}`).join(' · ') } : {}),
+    })
+    setValues({})
+  }
 
-function RunRefund({ emit }: { emit: RuntimeBlockProps['emit'] }) {
-  const [amount, setAmount] = useState('')
-  const [reason, setReason] = useState('')
-  const parsed = parseFloat(amount)
-  const valid = Number.isFinite(parsed) && parsed > 0 && reason.trim() !== ''
+  if (fields.length === 0) {
+    return <p className="run-empty">No fields configured — add some in the builder’s Inspector.</p>
+  }
+
   return (
     <form
       className="run-form"
       onSubmit={(e) => {
         e.preventDefault()
-        if (!valid) return
-        emit({ title: `Refund: ${reason.trim()}`, amount: parsed })
-        setAmount('')
-        setReason('')
+        if (missing) return
+        submit()
       }}
     >
-      <label className="run-field">
-        <span>Amount</span>
-        <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="$ 0.00" inputMode="decimal" />
-      </label>
-      <label className="run-field">
-        <span>Reason</span>
-        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason" />
-      </label>
-      <button type="submit" className="danger" disabled={!valid}>
-        Issue refund
+      {fields.map((f) => (
+        <label key={f.id} className="run-field">
+          <span>
+            {f.label}
+            {f.required ? '' : ' (optional)'}
+          </span>
+          {f.type === 'textarea' ? (
+            <textarea
+              rows={3}
+              value={value(f)}
+              onChange={(e) => setValues((prev) => ({ ...prev, [f.id]: e.target.value }))}
+            />
+          ) : f.type === 'select' ? (
+            <select value={value(f)} onChange={(e) => setValues((prev) => ({ ...prev, [f.id]: e.target.value }))}>
+              <option value="">Select…</option>
+              {(f.options ?? []).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type={f.type === 'date' ? 'date' : 'text'}
+              inputMode={f.type === 'number' ? 'decimal' : undefined}
+              value={value(f)}
+              onChange={(e) => setValues((prev) => ({ ...prev, [f.id]: e.target.value }))}
+              placeholder={f.type === 'number' ? '0.00' : ''}
+            />
+          )}
+        </label>
+      ))}
+      <button type="submit" className={block.type === 'refund' ? 'danger' : undefined} disabled={missing}>
+        {config.submitLabel || 'Submit'}
       </button>
     </form>
   )

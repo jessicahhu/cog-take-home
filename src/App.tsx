@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BlockCard from './BlockCard'
+import Inspector from './Inspector'
 import RunView from './RunView'
-import type { AuthConfig, BackendConfig, BackendKind, Block, BlockType, Link, Page, Role, SavedTool } from './types'
+import type {
+  AuthConfig,
+  BackendConfig,
+  BackendKind,
+  Block,
+  BlockConfig,
+  BlockType,
+  Link,
+  Page,
+  Role,
+  SavedTool,
+} from './types'
 import {
+  BACKEND_HINTS,
   BACKEND_LABELS,
   DEMO_USERS,
   ROLE_LABELS,
@@ -11,6 +24,8 @@ import {
   blocksFromPrompt,
   canLink,
   compileTool,
+  defaultConfig,
+  isHttpBackend,
   loadSavedTools,
   parseSavedTool,
   persistSavedTools,
@@ -129,7 +144,10 @@ export default function App() {
   const addBlock = useCallback(
     (type: BlockType, x: number, y: number, building = false) => {
       const id = newId()
-      setBlocks((prev) => [...prev, { id, type, label: LABELS[type], x, y, pageId: activePageId, building }])
+      setBlocks((prev) => [
+        ...prev,
+        { id, type, label: LABELS[type], x, y, pageId: activePageId, config: defaultConfig(type), building },
+      ])
       return id
     },
     [activePageId],
@@ -160,6 +178,10 @@ export default function App() {
 
   const handleRename = useCallback((id: string, label: string) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, label } : b)))
+  }, [])
+
+  const handleConfigChange = useCallback((id: string, config: BlockConfig) => {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, config } : b)))
   }, [])
 
   const handleCycleRole = useCallback((id: string) => {
@@ -347,6 +369,7 @@ export default function App() {
         y: b.y - minY,
         page: pageIndex.get(b.pageId) ?? 0,
         ...(b.role && b.role !== 'everyone' ? { role: b.role } : {}),
+        ...(b.config ? { config: b.config } : {}),
       })),
       pages: pages.map((p) => p.name),
       pageRoles: pages.map((p) => p.role ?? 'everyone'),
@@ -386,6 +409,7 @@ export default function App() {
       y: b.y + offset,
       pageId: pageIds[Math.min(b.page ?? 0, pageIds.length - 1)],
       role: b.role ?? 'everyone',
+      config: b.config ?? defaultConfig(b.type),
     }))
     setBlocks((prev) => [...prev, ...newBlocks])
     if (tool.links) {
@@ -449,6 +473,8 @@ export default function App() {
       />
     )
   }
+
+  const selectedBlock = blocks.find((b) => b.id === selectedId) ?? null
 
   const wirePath = (fx: number, fy: number, tx: number, ty: number) =>
     `M ${fx} ${fy} C ${fx + 60} ${fy}, ${tx - 60} ${ty}, ${tx} ${ty}`
@@ -551,19 +577,21 @@ export default function App() {
                     </option>
                   ))}
                 </select>
-                {backend.kind === 'rest' && (
+                {isHttpBackend(backend.kind) && (
                   <input
                     className="backend-url"
                     value={backend.restUrl}
                     onChange={(e) => setBackend((prev) => ({ ...prev, restUrl: e.target.value }))}
-                    placeholder="https://api.example.com"
+                    placeholder={
+                      backend.kind === 'aws'
+                        ? 'https://abc123.execute-api.us-east-1.amazonaws.com/prod'
+                        : backend.kind === 'azure'
+                          ? 'https://my-tool.azurewebsites.net/api'
+                          : 'https://api.example.com'
+                    }
                   />
                 )}
-                <p className="backend-hint">
-                  {backend.kind === 'memory' && 'Data lives in memory while the tool runs.'}
-                  {backend.kind === 'browser' && 'Data persists in this browser between runs.'}
-                  {backend.kind === 'rest' && 'Events POST to your API; falls back to memory if unreachable.'}
-                </p>
+                <p className="backend-hint">{BACKEND_HINTS[backend.kind]}</p>
               </div>
             )}
           </section>
@@ -766,6 +794,9 @@ export default function App() {
         </main>
 
         <aside className="chat">
+          {selectedBlock && (
+            <Inspector block={selectedBlock} onChange={handleConfigChange} onClose={() => setSelectedId(null)} />
+          )}
           <div className="chat-header">
             <span className="chat-avatar">◆</span>
             <span>
