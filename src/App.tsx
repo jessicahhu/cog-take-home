@@ -613,12 +613,20 @@ export default function App() {
                   <input
                     type="checkbox"
                     checked={auth.required}
-                    onChange={(e) => setAuth({ required: e.target.checked })}
+                    onChange={(e) => setAuth((prev) => ({ ...prev, required: e.target.checked }))}
                   />
                   Require sign-in
                 </label>
                 {auth.required ? (
                   <>
+                    <label className="access-toggle-row">
+                      <input
+                        type="checkbox"
+                        checked={auth.adminOnlyData !== false}
+                        onChange={(e) => setAuth((prev) => ({ ...prev, adminOnlyData: e.target.checked }))}
+                      />
+                      Only admins see submitted records
+                    </label>
                     <p className="backend-hint">
                       Demo users — gate pages in the Sitemap or blocks via the 🔒 badge:
                     </p>

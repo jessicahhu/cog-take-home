@@ -50,6 +50,8 @@ export const DEMO_USERS: DemoUser[] = [
 
 export interface AuthConfig {
   required: boolean
+  /** Hide submitted records from anyone below admin (blocks can override with `dataRole`). */
+  adminOnlyData?: boolean
 }
 
 export type FieldType = 'text' | 'number' | 'date' | 'select' | 'textarea'
@@ -102,6 +104,8 @@ export interface BlockConfig {
   startingBalance?: number
   /** input */
   placeholder?: string
+  /** minimum role required to see the records this block displays */
+  dataRole?: Role
   /** starting rows for queues, feeds, tables and connector sources */
   seedRows?: SeedRow[]
   /** button: title of the record it emits */
